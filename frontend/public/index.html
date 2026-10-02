@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FitControl - Sistema de Recepción para Gimnasio</title>
+  <meta name="description" content="Sistema web ágil y táctil para recepción de gimnasio con control de acceso por semáforo, cobranza rápida y corte de caja diario.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../src/css/styles.css">
+</head>
+<body>
+  <!-- BARRA SUPERIOR / HEADER -->
+  <header class="top-nav">
+    <div class="nav-brand">
+      <div class="brand-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 5v14M18 5v14M2 9h4M18 9h4M2 15h4M18 15h4M6 12h12"/></svg>
+      </div>
+      <div class="brand-text">
+        <span class="brand-title">POWER<span class="highlight">GYM</span></span>
+        <span class="brand-tag">Punto de Recepción</span>
+      </div>
+    </div>
+
+    <!-- Navegación de Pestañas Principales (Botones Grandes) -->
+    <nav class="nav-tabs" id="mainNav">
+      <button class="nav-btn active" data-tab="dashboard">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
+        <span>Recepción & Semáforo</span>
+      </button>
+      <button class="nav-btn" data-tab="socios">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        <span>Registrar Socio</span>
+      </button>
+      <button class="nav-btn" data-tab="corte">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/><line x1="12" y1="15" x2="12" y2="15"/></svg>
+        <span>Corte de Caja</span>
+      </button>
+      <button class="nav-btn admin-only-tab" data-tab="admin" id="tabAdminBtn">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        <span>Precios & Admin</span>
+      </button>
+    </nav>
+
+    <!-- Selector de Rol (Módulo 5) -->
+    <div class="user-role-control">
+      <div class="role-selector-box">
+        <label for="roleSelect" class="role-label">Operando como:</label>
+        <div class="role-badge-wrapper">
+          <select id="roleSelect" class="role-select">
+            <option value="recepcionista">👤 Recepcionista</option>
+            <option value="admin">🔑 Administrador / Dueño</option>
+          </select>
+        </div>
+      </div>
+      <div class="current-time" id="currentTimeDisplay">--:--</div>
+    </div>
+  </header>
+
+  <!-- BANNER INFORMATIVO DE ROL -->
+  <div class="role-banner" id="roleBanner">
+    <div class="role-banner-content">
+      <span class="role-badge" id="roleBadge">Modo Recepcionista</span>
+      <span class="role-desc" id="roleDesc">Permisos: Registrar socios, Cobrar y Consultar Semáforo. Protegido: Cambio de precios y eliminación restringida a Dueño.</span>
+    </div>
+  </div>
+
+  <!-- CONTENEDOR PRINCIPAL DE VISTAS -->
+  <main class="main-container">
+
+    <!-- ============================================== -->
+    <!-- VISTA 1: DASHBOARD / RECEPCIÓN & SEMÁFORO (MÓDULO 2) -->
+    <!-- ============================================== -->
+    <section class="tab-view active" id="view-dashboard">
+      <!-- Tarjetas de Resumen Rápido -->
+      <div class="quick-stats-grid">
+        <div class="stat-card stat-green" id="filterCardActivos" title="Filtrar socios activos">
+          <div class="stat-icon">🟢</div>
+          <div class="stat-info">
+            <span class="stat-number" id="countActivos">0</span>
+            <span class="stat-name">Socios Activos</span>
+          </div>
+          <span class="stat-status-hint">Acceso Permitido</span>
+        </div>
+
+        <div class="stat-card stat-yellow" id="filterCardPorVencer" title="Filtrar socios por vencer en 3 días">
+          <div class="stat-icon">🟡</div>
+          <div class="stat-info">
+            <span class="stat-number" id="countPorVencer">0</span>
+            <span class="stat-name">Por Vencer (≤3 días)</span>
+          </div>
+          <span class="stat-status-hint">Avisar en Puerta</span>
+        </div>
+
+        <div class="stat-card stat-red" id="filterCardVencidos" title="Filtrar socios vencidos">
+          <div class="stat-icon">🔴</div>
+          <div class="stat-info">
+            <span class="stat-number" id="countVencidos">0</span>
+            <span class="stat-name">Vencidos</span>
+          </div>
+          <span class="stat-status-hint">Cobro Requerido</span>
+        </div>
+
+        <div class="stat-card stat-blue" id="goToCajaCard" title="Ir a corte de caja de hoy">
+          <div class="stat-icon">💵</div>
+          <div class="stat-info">
+            <span class="stat-number" id="todayTotalIncome">$0.00</span>
+            <span class="stat-name">Caja Cobrada Hoy</span>
+          </div>
+          <span class="stat-status-hint">Ver Detalle ➜</span>
+        </div>
+      </div>
+
+      <!-- Barra de Acción Rápida para Horas Pico (Búsqueda en 1 clic y Registrar) -->
+      <div class="reception-action-bar">
+        <div class="search-input-group">
+          <svg class="search-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input 
+            type="text" 
+            id="searchInput" 
+            class="touch-input search-input" 
+            placeholder="🔍 Buscar por nombre o teléfono (ej. Carlos, 5543...)"
+            autocomplete="off"
+            autofocus
+          >
+          <button class="clear-search-btn" id="clearSearchBtn" title="Limpiar búsqueda">&times;</button>
+        </div>
+
+        <!-- Filtros Semáforo Rápidos -->
+        <div class="traffic-filters">
+          <button class="filter-pill active" data-filter="all">Todos (<span id="countAll">0</span>)</button>
+          <button class="filter-pill pill-green" data-filter="green">🟢 Activos (<span id="pillCountGreen">0</span>)</button>
+          <button class="filter-pill pill-yellow" data-filter="yellow">🟡 Por Vencer (<span id="pillCountYellow">0</span>)</button>
+          <button class="filter-pill pill-red" data-filter="red">🔴 Vencidos (<span id="pillCountRed">0</span>)</button>
+        </div>
+
+        <button class="btn btn-primary btn-large" id="btnQuickRegister">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          <span>+ Nuevo Socio</span>
+        </button>
+      </div>
+
+      <!-- Semáforo / Lista Rápida de Socios -->
+      <div class="table-container">
+        <div class="table-header-info">
+          <h3>Lista Rápida de Clientes & Estado de Acceso</h3>
+          <span class="condition-badge" title="Requisito cumplido: Checar el estado toma máximo 2 clics">⚡ Búsqueda y Validación Instantánea</span>
+        </div>
+
+        <div class="table-responsive">
+          <table class="traffic-table" id="membersTable">
+            <thead>
+              <tr>
+                <th style="width: 140px;">Semáforo</th>
+                <th>Socio / Cliente</th>
+                <th>Teléfono</th>
+                <th>Tipo de Pase</th>
+                <th>Vigencia / Vencimiento</th>
+                <th>Días Restantes</th>
+                <th style="width: 220px; text-align: center;">Acciones Directas</th>
+              </tr>
+            </thead>
+            <tbody id="membersTableBody">
+              <!-- Renderizado dinámico -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Estado vacío cuando no hay resultados -->
+        <div class="empty-state" id="emptyState" style="display: none;">
+          <div class="empty-icon">🔍</div>
+          <h4>No se encontraron socios</h4>
+          <p id="emptyStateMsg">No hay socios que coincidan con el término de búsqueda o filtro seleccionado.</p>
+          <button class="btn btn-outline" id="btnResetFilters">Restablecer Búsqueda</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================== -->
+    <!-- VISTA 2: REGISTRO DE SOCIOS (MÓDULO 1) -->
+    <!-- ============================================== -->
+    <section class="tab-view" id="view-socios">
+      <div class="form-container-card">
+        <div class="form-header">
+          <div class="form-header-text">
+            <h2>Dar de Alta a un Socio</h2>
+            <p>Registra rápidamente al cliente. El sistema calcula la fecha de vencimiento automáticamente.</p>
+          </div>
+          <span class="required-note">* Nombre y teléfono son obligatorios</span>
+        </div>
+
+        <form id="memberRegisterForm" novalidate>
+          <div class="form-grid">
+            <!-- Nombre -->
+            <div class="form-field full-width">
+              <label for="memberName" class="field-label">Nombre Completo del Socio <span class="req">*</span></label>
+              <input 
+                type="text" 
+                id="memberName" 
+                class="touch-input" 
+                placeholder="Ej. Juan Pérez González"
+                required
+              >
+              <span class="field-error" id="nameError">El nombre es obligatorio para guardar al socio.</span>
+            </div>
+
+            <!-- Teléfono -->
+            <div class="form-field">
+              <label for="memberPhone" class="field-label">Número de Teléfono <span class="req">*</span></label>
+              <input 
+                type="tel" 
+                id="memberPhone" 
+                class="touch-input" 
+                placeholder="Ej. 5512345678"
+                required
+              >
+              <span class="field-error" id="phoneError">El teléfono es obligatorio para guardar al socio.</span>
+            </div>
+
+            <!-- Tipo de Pase -->
+            <div class="form-field">
+              <label for="memberPassType" class="field-label">Tipo de Pase <span class="req">*</span></label>
+              <select id="memberPassType" class="touch-input touch-select">
+                <option value="visita">Visita (1 Día)</option>
+                <option value="semanal">Semanal (7 Días)</option>
+                <option value="mensual" selected>Mensual (30 Días)</option>
+                <option value="anual">Anual (365 Días)</option>
+              </select>
+            </div>
+
+            <!-- Fecha de Inicio -->
+            <div class="form-field">
+              <label for="memberStartDate" class="field-label">Fecha de Inicio</label>
+              <input 
+                type="date" 
+                id="memberStartDate" 
+                class="touch-input"
+              >
+            </div>
+
+            <!-- Fecha de Vencimiento Calculada Automáticamente -->
+            <div class="form-field">
+              <label class="field-label">Fecha de Vencimiento <span class="auto-badge">Cálculo Automático</span></label>
+              <div class="auto-calc-display" id="calculatedEndDateDisplay">
+                <span class="calc-date" id="calcEndDateText">--/--/----</span>
+                <span class="calc-duration" id="calcDurationText">30 días de vigencia</span>
+              </div>
+            </div>
+
+            <!-- Precio a Cobrar Sugerido -->
+            <div class="form-field">
+              <label class="field-label">Costo del Pase</label>
+              <div class="auto-calc-display price-display" id="calcPassPriceDisplay">
+                <span class="calc-price" id="calcPriceText">$0.00</span>
+                <span class="calc-duration">Según tarifa configurada</span>
+              </div>
+            </div>
+
+            <!-- Opción: Cobrar ahora mismo -->
+            <div class="form-field full-width payment-now-box">
+              <label class="checkbox-container">
+                <input type="checkbox" id="checkPayNow" checked>
+                <span class="checkmark"></span>
+                <span class="checkbox-text">
+                  <strong>Cobrar y emitir comprobante de pago inmediatamente</strong>
+                  <span class="subtext">Si está desmarcado, el socio quedará registrado como pendiente de pago (Rojo).</span>
+                </span>
+              </label>
+
+              <!-- Opciones de pago inmediato -->
+              <div class="immediate-pay-options" id="immediatePayOptions">
+                <div class="payment-method-selector">
+                  <span class="field-label">Método de Pago:</span>
+                  <div class="method-pills">
+                    <label class="method-pill-label">
+                      <input type="radio" name="immediatePaymentMethod" value="efectivo" checked>
+                      <span class="pill-content">💵 Efectivo</span>
+                    </label>
+                    <label class="method-pill-label">
+                      <input type="radio" name="immediatePaymentMethod" value="transferencia">
+                      <span class="pill-content">💳 Transferencia</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Botones de Acción Grandes -->
+          <div class="form-actions">
+            <button type="button" class="btn btn-secondary btn-large" id="btnCancelRegister">Cancelar</button>
+            <button type="submit" class="btn btn-primary btn-large" id="btnSubmitRegister">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+              <span>Guardar Socio y Registrar</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <!-- ============================================== -->
+    <!-- VISTA 3: CORTE DE CAJA (MÓDULO 4) -->
+    <!-- ============================================== -->
+    <section class="tab-view" id="view-corte">
+      <div class="corte-container">
+        <!-- Encabezado de Corte -->
+        <div class="corte-header">
+          <div>
+            <h2>Corte de Caja Diario</h2>
+            <p>Resumen de cobros del día actual, desglose por tipo de membresía y método de pago.</p>
+          </div>
+          <div class="corte-controls">
+            <label for="corteDateFilter" class="field-label" style="margin-bottom: 0;">Fecha de Consulta:</label>
+            <input type="date" id="corteDateFilter" class="touch-input corte-date-input">
+            <button class="btn btn-outline" id="btnPrintCorte" title="Imprimir corte de caja">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+              <span>Imprimir Corte</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Total Principal Destacado -->
+        <div class="corte-total-hero">
+          <div class="hero-label">TOTAL COBRADO EN EL DÍA</div>
+          <div class="hero-amount" id="corteTotalAmount">$0.00</div>
+          <div class="hero-meta" id="corteTotalTransactions">0 transacciones registradas</div>
+        </div>
+
+        <!-- Desgloses Clave (Requerimiento: Visitas, Mensualidades y Método de Pago) -->
+        <div class="corte-breakdowns-grid">
+          <!-- Desglose por Método de Pago -->
+          <div class="corte-card">
+            <div class="corte-card-header">
+              <h4>💵 Por Método de Pago</h4>
+            </div>
+            <div class="corte-card-body">
+              <div class="breakdown-row">
+                <div class="row-left">
+                  <span class="indicator-dot dot-cash"></span>
+                  <span class="row-name">Efectivo</span>
+                </div>
+                <div class="row-right">
+                  <span class="row-count" id="corteCashCount">0 pagos</span>
+                  <span class="row-val" id="corteCashTotal">$0.00</span>
+                </div>
+              </div>
+              <div class="breakdown-row">
+                <div class="row-left">
+                  <span class="indicator-dot dot-transfer"></span>
+                  <span class="row-name">Transferencia</span>
+                </div>
+                <div class="row-right">
+                  <span class="row-count" id="corteTransferCount">0 pagos</span>
+                  <span class="row-val" id="corteTransferTotal">$0.00</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Desglose por Tipo de Pase -->
+          <div class="corte-card">
+            <div class="corte-card-header">
+              <h4>🎫 Por Tipo de Pase</h4>
+            </div>
+            <div class="corte-card-body">
+              <div class="breakdown-row">
+                <div class="row-left">
+                  <span class="row-name">Visitas (Día)</span>
+                </div>
+                <div class="row-right">
+                  <span class="row-count" id="cortePassVisitaCount">0</span>
+                  <span class="row-val" id="cortePassVisitaTotal">$0.00</span>
+                </div>
+              </div>
+              <div class="breakdown-row">
+                <div class="row-left">
+                  <span class="row-name">Semanales</span>
+                </div>
+                <div class="row-right">
+                  <span class="row-count" id="cortePassSemanalCount">0</span>
+                  <span class="row-val" id="cortePassSemanalTotal">$0.00</span>
+                </div>
+              </div>
+              <div class="breakdown-row">
+                <div class="row-left">
+                  <span class="row-name">Mensualidades</span>
+                </div>
+                <div class="row-right">
+                  <span class="row-count" id="cortePassMensualCount">0</span>
+                  <span class="row-val" id="cortePassMensualTotal">$0.00</span>
+                </div>
+              </div>
+              <div class="breakdown-row">
+                <div class="row-left">
+                  <span class="row-name">Anuales</span>
+                </div>
+                <div class="row-right">
+                  <span class="row-count" id="cortePassAnualCount">0</span>
+                  <span class="row-val" id="cortePassAnualTotal">$0.00</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bitácora de Pagos del Día -->
+        <div class="table-container corte-history-container">
+          <div class="table-header-info">
+            <h3>Detalle de Cobros Registrados</h3>
+            <span class="corte-date-badge" id="corteTableDateBadge">Hoy</span>
+          </div>
+          <div class="table-responsive">
+            <table class="traffic-table">
+              <thead>
+                <tr>
+                  <th>Hora</th>
+                  <th>Ticket #</th>
+                  <th>Socio / Cliente</th>
+                  <th>Concepto / Pase</th>
+                  <th>Método</th>
+                  <th>Monto</th>
+                  <th>Vencimiento Otorgado</th>
+                  <th style="text-align: center;">Acción</th>
+                </tr>
+              </thead>
+              <tbody id="corteTableBody">
+                <!-- Se inyecta con JS -->
+              </tbody>
+            </table>
+          </div>
+          <div class="empty-state" id="emptyCorteState" style="display: none;">
+            <div class="empty-icon">🧾</div>
+            <h4>Sin cobros registrados para esta fecha</h4>
+            <p>Los cobros generados aparecerán automáticamente en esta bitácora.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================== -->
+    <!-- VISTA 4: CONFIGURACIÓN DE PRECIOS & ADMIN (MÓDULO 5) -->
+    <!-- ============================================== -->
+    <section class="tab-view" id="view-admin">
+      <div class="admin-panel-container">
+        <!-- Tarjeta de Control de Precios (Solo Admin) -->
+        <div class="admin-card">
+          <div class="admin-card-header">
+            <div class="header-with-badge">
+              <h2>Configuración de Precios de Pases</h2>
+              <span class="admin-lock-badge">🔒 Solo Administrador / Dueño</span>
+            </div>
+            <p>Modifica el costo oficial de las membresías. Los cambios se aplican automáticamente en los nuevos cobros.</p>
+          </div>
+
+          <form id="pricesForm" class="prices-grid">
+            <div class="price-input-box">
+              <label for="priceVisita">Pase de Visita (1 Día)</label>
+              <div class="price-input-wrapper">
+                <span class="currency-symbol">$</span>
+                <input type="number" id="priceVisita" min="0" step="5" class="touch-input price-input">
+              </div>
+              <span class="price-hint">Acceso de un solo día</span>
+            </div>
+
+            <div class="price-input-box">
+              <label for="priceSemanal">Pase Semanal (7 Días)</label>
+              <div class="price-input-wrapper">
+                <span class="currency-symbol">$</span>
+                <input type="number" id="priceSemanal" min="0" step="5" class="touch-input price-input">
+              </div>
+              <span class="price-hint">Vigencia de 1 semana</span>
+            </div>
+
+            <div class="price-input-box">
+              <label for="priceMensual">Pase Mensual (30 Días)</label>
+              <div class="price-input-wrapper">
+                <span class="currency-symbol">$</span>
+                <input type="number" id="priceMensual" min="0" step="10" class="touch-input price-input">
+              </div>
+              <span class="price-hint">Membresía estándar</span>
+            </div>
+
+            <div class="price-input-box">
+              <label for="priceAnual">Pase Anual (365 Días)</label>
+              <div class="price-input-wrapper">
+                <span class="currency-symbol">$</span>
+                <input type="number" id="priceAnual" min="0" step="50" class="touch-input price-input">
+              </div>
+              <span class="price-hint">Membresía completa año</span>
+            </div>
+
+            <div class="price-actions full-width">
+              <button type="submit" class="btn btn-primary btn-large" id="btnSavePrices">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/></svg>
+                <span>Guardar Nuevos Precios</span>
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Reporte Global de Socios & Opciones de Datos (Solo Admin) -->
+        <div class="admin-card">
+          <div class="admin-card-header">
+            <div class="header-with-badge">
+              <h2>Métricas Globales del Negocio</h2>
+              <span class="admin-lock-badge">🔒 Solo Administrador / Dueño</span>
+            </div>
+            <p>Resumen consolidado para la toma de decisiones del dueño del gimnasio.</p>
+          </div>
+
+          <div class="admin-metrics-grid">
+            <div class="metric-pill">
+              <span class="metric-title">Total de Socios Registrados</span>
+              <span class="metric-val" id="metricTotalMembers">0</span>
+            </div>
+            <div class="metric-pill">
+              <span class="metric-title">Ingresos Históricos Acumulados</span>
+              <span class="metric-val" id="metricTotalRevenue">$0.00</span>
+            </div>
+            <div class="metric-pill">
+              <span class="metric-title">Tasa de Socios Activos</span>
+              <span class="metric-val" id="metricActiveRatio">0%</span>
+            </div>
+          </div>
+
+          <!-- Zona de Riesgo / Gestión de Datos -->
+          <div class="admin-danger-zone">
+            <h4>Zona de Mantenimiento de Datos (Exclusivo Administrador)</h4>
+            <p>Estas opciones solo están disponibles con el rol de Administrador/Dueño según el requerimiento.</p>
+            <div class="danger-actions">
+              <button class="btn btn-outline" id="btnLoadSampleData">Restaurar Datos de Demostración</button>
+              <button class="btn btn-danger" id="btnClearAllData">Reiniciar Base de Datos</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ============================================== -->
+  <!-- MODAL: REGISTRAR COBRO / RENOVAR SOCIO (MÓDULO 3) -->
+  <!-- ============================================== -->
+  <div class="modal-overlay" id="paymentModal">
+    <div class="modal-box payment-modal-box">
+      <div class="modal-header">
+        <div class="modal-header-icon">💳</div>
+        <div>
+          <h3 id="paymentModalTitle">Registrar Cobro al Socio</h3>
+          <p id="paymentModalSubtitle">Selecciona el pase y el método de pago</p>
+        </div>
+        <button class="modal-close-btn" id="closePaymentModal">&times;</button>
+      </div>
+
+      <form id="paymentForm">
+        <input type="hidden" id="payMemberId">
+
+        <div class="payment-member-card">
+          <div class="pm-info">
+            <span class="pm-label">Cliente / Socio:</span>
+            <span class="pm-name" id="payMemberNameDisplay">--</span>
+          </div>
+          <div class="pm-info">
+            <span class="pm-label">Teléfono:</span>
+            <span class="pm-val" id="payMemberPhoneDisplay">--</span>
+          </div>
+          <div class="pm-info">
+            <span class="pm-label">Estado Actual:</span>
+            <span class="pm-badge" id="payMemberStatusBadge">--</span>
+          </div>
+        </div>
+
+        <div class="form-grid">
+          <!-- Tipo de Pase a Cobrar -->
+          <div class="form-field full-width">
+            <label for="payPassType" class="field-label">Pase / Membresía a Contratar</label>
+            <select id="payPassType" class="touch-input touch-select">
+              <option value="visita">Visita (1 Día)</option>
+              <option value="semanal">Semanal (7 Días)</option>
+              <option value="mensual" selected>Mensual (30 Días)</option>
+              <option value="anual">Anual (365 Días)</option>
+            </select>
+          </div>
+
+          <!-- Nueva fecha de vencimiento proyectada -->
+          <div class="form-field">
+            <label class="field-label">Nueva Fecha de Vencimiento:</label>
+            <div class="auto-calc-display">
+              <strong id="payNewDueDateText" class="calc-date">--/--/----</strong>
+            </div>
+          </div>
+
+          <!-- Monto a Cobrar -->
+          <div class="form-field">
+            <label class="field-label">Monto a Cobrar:</label>
+            <div class="auto-calc-display price-display">
+              <strong id="payAmountText" class="calc-price">$0.00</strong>
+            </div>
+          </div>
+
+          <!-- Método de Pago (Efectivo o Transferencia) -->
+          <div class="form-field full-width">
+            <label class="field-label">Método de Pago <span class="req">*</span></label>
+            <div class="payment-method-selector large-selector">
+              <label class="method-pill-label">
+                <input type="radio" name="payMethod" value="efectivo" checked>
+                <div class="pill-content-card">
+                  <span class="pill-emoji">💵</span>
+                  <span class="pill-title">Efectivo</span>
+                  <span class="pill-desc">Cobro en caja física</span>
+                </div>
+              </label>
+
+              <label class="method-pill-label">
+                <input type="radio" name="payMethod" value="transferencia">
+                <div class="pill-content-card">
+                  <span class="pill-emoji">💳</span>
+                  <span class="pill-title">Transferencia</span>
+                  <span class="pill-desc">SPEI / Depósito / Tarjeta</span>
+                </div>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary btn-large" id="btnCancelPayment">Cancelar</button>
+          <button type="submit" class="btn btn-primary btn-large" id="btnConfirmPayment">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            <span>Confirmar Pago y Generar Ticket</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============================================== -->
+  <!-- MODAL: TICKET DE COMPROBANTE BÁSICO (MÓDULO 3) -->
+  <!-- ============================================== -->
+  <div class="modal-overlay" id="ticketModal">
+    <div class="modal-box ticket-modal-box">
+      <div class="ticket-header-actions no-print">
+        <span class="ticket-action-title">🧾 Comprobante de Pago Generado</span>
+        <button class="modal-close-btn" id="closeTicketModal">&times;</button>
+      </div>
+
+      <!-- FORMATO TICKET TÉRMICO FÍSICO / IMPRIMIBLE -->
+      <div class="thermal-receipt" id="thermalReceipt">
+        <div class="receipt-header">
+          <h2 class="receipt-gym-name">POWER GYM</h2>
+          <p class="receipt-subtitle">Recepción & Control de Acceso</p>
+          <p class="receipt-info-line">RFC: GYM980123-ABC</p>
+          <p class="receipt-info-line">Tel: (55) 5432-1098</p>
+          <div class="receipt-divider">================================</div>
+          <div class="receipt-row-meta">
+            <span>TICKET: <strong id="tktNumber">#0001</strong></span>
+            <span id="tktDate">01/01/2026 12:00</span>
+          </div>
+          <div class="receipt-row-meta">
+            <span>ATENDIÓ: <strong id="tktCashier">Recepcionista</strong></span>
+          </div>
+          <div class="receipt-divider">================================</div>
+        </div>
+
+        <div class="receipt-body">
+          <div class="receipt-field">
+            <span class="lbl">SOCIO:</span>
+            <span class="val bold-val" id="tktMemberName">Juan Pérez</span>
+          </div>
+          <div class="receipt-field">
+            <span class="lbl">TELÉFONO:</span>
+            <span class="val" id="tktMemberPhone">5512345678</span>
+          </div>
+          <div class="receipt-field">
+            <span class="lbl">CONCEPTO:</span>
+            <span class="val" id="tktPassName">Pase Mensual (30 Días)</span>
+          </div>
+          <div class="receipt-field">
+            <span class="lbl">FORMA DE PAGO:</span>
+            <span class="val" id="tktPaymentMethod">Efectivo</span>
+          </div>
+
+          <div class="receipt-divider">--------------------------------</div>
+
+          <div class="receipt-field receipt-total-row">
+            <span class="lbl">TOTAL PAGADO:</span>
+            <span class="val-total" id="tktAmount">$500.00 MXN</span>
+          </div>
+
+          <div class="receipt-divider">================================</div>
+
+          <!-- DATO CLAVE SEGÚN REQUERIMIENTO: FECHA DE VENCIMIENTO -->
+          <div class="receipt-expiration-box">
+            <div class="exp-title">VÁLIDO HASTA:</div>
+            <div class="exp-date" id="tktExpirationDate">30/NOV/2026</div>
+            <div class="exp-sub">Favor de presentar este ticket o dar su nombre en el torniquete/recepción.</div>
+          </div>
+
+          <div class="receipt-divider">================================</div>
+        </div>
+
+        <div class="receipt-footer">
+          <p>¡Gracias por entrenar con nosotros!</p>
+          <p>Conserve su comprobante</p>
+        </div>
+      </div>
+
+      <!-- BOTONES DE ACCIÓN PARA EL TICKET -->
+      <div class="ticket-buttons-bar no-print">
+        <button class="btn btn-secondary btn-large" id="btnCloseTicket">Cerrar</button>
+        <button class="btn btn-primary btn-large" id="btnPrintReceipt">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+          <span>Imprimir Ticket</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST / NOTIFICACIÓN FLOTANTE -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script type="module" src="../src/js/app.js"></script>
+</body>
+</html>
