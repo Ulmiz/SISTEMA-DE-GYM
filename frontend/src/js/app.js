@@ -1,7 +1,16 @@
-import { getTodayString, formatDateToISO, getDateOffset, addDaysToDate, formatDisplayDate, formatCurrency, showToast } from './modules/utils.js';
+import { getTodayString, formatDateToISO, getDateOffset, addDaysToDate, calculatePassDueDate, formatDisplayDate, formatCurrency, showToast } from './modules/utils.js';
 import { appState, loadDataFromStorage, saveMembersToStorage, saveTransactionsToStorage, savePricesToStorage, getMemberTrafficStatus, resetSeedData, PASS_DURATIONS, PASS_NAMES } from './modules/state.js';
 import { renderMembersTable, applyRolePermissions, updateTodayStats } from './modules/ui.js';
 import { api } from './modules/api.js';
+
+// Importación de Componentes Modulares
+import { renderNavbar, renderRoleBanner } from './components/Navbar.js';
+import { renderDashboardView } from './components/DashboardView.js';
+import { renderSociosView } from './components/SociosView.js';
+import { renderCorteViewTemplate } from './components/CorteView.js';
+import { renderAdminView } from './components/AdminView.js';
+import { renderPaymentModal } from './components/PaymentModal.js';
+import { renderTicketModal } from './components/TicketModal.js';
 
 // Funciones expuestas a window para botones onClick en HTML (de modules/ui.js)
 window.handleDeleteMember = handleDeleteMember;
@@ -9,7 +18,34 @@ window.openPaymentModal = openPaymentModal;
 window.switchTab = switchTab;
 window.reprintTicket = reprintTicket;
 
+function mountComponents() {
+  const headerNav = document.getElementById('headerNav');
+  if (headerNav) headerNav.innerHTML = renderNavbar();
+
+  const roleBanner = document.getElementById('roleBanner');
+  if (roleBanner) roleBanner.innerHTML = renderRoleBanner();
+
+  const appMain = document.getElementById('appMain');
+  if (appMain) {
+    appMain.innerHTML = `
+      ${renderDashboardView()}
+      ${renderSociosView()}
+      ${renderCorteViewTemplate()}
+      ${renderAdminView()}
+    `;
+  }
+
+  const modalContainer = document.getElementById('modalContainer');
+  if (modalContainer) {
+    modalContainer.innerHTML = `
+      ${renderPaymentModal()}
+      ${renderTicketModal()}
+    `;
+  }
+}
+
 function initApp() {
+  mountComponents();
   loadDataFromStorage();
   setupEventListeners();
   updateTimeDisplay();
@@ -64,15 +100,20 @@ export function switchTab(tabId) {
 function updateRegistrationEndDatePreview() {
   const passType = document.getElementById('memberPassType').value;
   const startDate = document.getElementById('memberStartDate').value || getTodayString();
-  const duration = PASS_DURATIONS[passType] || 30;
-  const endDate = addDaysToDate(startDate, duration);
+  const endDate = calculatePassDueDate(startDate, passType);
 
   const calcEndDateText = document.getElementById('calcEndDateText');
   const calcDurationText = document.getElementById('calcDurationText');
   const calcPriceText = document.getElementById('calcPriceText');
 
   if (calcEndDateText) calcEndDateText.textContent = formatDisplayDate(endDate);
-  if (calcDurationText) calcDurationText.textContent = `${duration} días de vigencia`;
+  if (calcDurationText) {
+    calcDurationText.textContent = passType === 'visita' 
+      ? 'Vence hoy al cierre del día' 
+      : passType === 'mensual' 
+        ? 'Mismo día del mes siguiente' 
+        : `${PASS_DURATIONS[passType]} días de vigencia`;
+  }
   if (calcPriceText) calcPriceText.textContent = formatCurrency(appState.prices[passType] || 0);
 }
 
@@ -88,10 +129,25 @@ function handleMemberRegisterSubmit(e) {
     return;
   }
 
+  // Requerimiento 2: Bloquear si intentan registrar el mismo teléfono
+  const cleanPhone = phone.replace(/\D/g, '');
+  const existingMember = appState.members.find(m => m.phone.replace(/\D/g, '') === cleanPhone);
+  if (existingMember) {
+    showToast(`⚠️ El teléfono ${phone} ya pertenece a "${existingMember.name}". Búscalo en la lista para renovar su pase.`, 'error');
+    switchTab('dashboard');
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) {
+      searchInput.value = phone;
+      appState.searchQuery = phone;
+      renderMembersTable();
+      searchInput.focus();
+    }
+    return;
+  }
+
   const passType = document.getElementById('memberPassType').value;
   const startDate = document.getElementById('memberStartDate').value || getTodayString();
-  const duration = PASS_DURATIONS[passType] || 30;
-  const endDate = addDaysToDate(startDate, duration);
+  const endDate = calculatePassDueDate(startDate, passType);
 
   const payNowChecked = document.getElementById('checkPayNow').checked;
   const paymentMethodInput = document.querySelector('input[name="immediatePaymentMethod"]:checked');
@@ -146,14 +202,9 @@ function updatePaymentModalCalculations() {
   const passType = document.getElementById('payPassType').value;
   const duration = PASS_DURATIONS[passType] || 30;
 
-  let baseDate = getTodayString();
-  if (member && member.endDate) {
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    const [y, m, d] = member.endDate.split('-').map(Number);
-    const end = new Date(y, m - 1, d);
-    if (end > today) baseDate = member.endDate;
-  }
-  const newDueDate = addDaysToDate(baseDate, duration);
+  // Requerimiento 1: Si paga hoy, se reinicia desde la fecha de cobro
+  const baseDate = getTodayString();
+  const newDueDate = calculatePassDueDate(baseDate, passType);
   const price = appState.prices[passType] || 0;
 
   document.getElementById('payNewDueDateText').textContent = formatDisplayDate(newDueDate);
@@ -167,19 +218,13 @@ function handlePaymentSubmit(e) {
   if (!member) return;
 
   const passType = document.getElementById('payPassType').value;
-  const duration = PASS_DURATIONS[passType] || 30;
   const methodInput = document.querySelector('input[name="payMethod"]:checked');
   const paymentMethod = methodInput ? methodInput.value : 'efectivo';
   const amount = appState.prices[passType] || 0;
 
-  let baseDate = getTodayString();
-  if (member.endDate) {
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    const [y, m, d] = member.endDate.split('-').map(Number);
-    const end = new Date(y, m - 1, d);
-    if (end > today) baseDate = member.endDate;
-  }
-  const newDueDate = addDaysToDate(baseDate, duration);
+  // Requerimiento 1: Vigencia se reinicia desde la fecha de cobro
+  const baseDate = getTodayString();
+  const newDueDate = calculatePassDueDate(baseDate, passType);
   member.passType = passType;
   member.endDate = newDueDate;
   member.status = 'active';
@@ -349,6 +394,16 @@ function setupEventListeners() {
       if (clearSearchBtn) clearSearchBtn.style.display = appState.searchQuery ? 'flex' : 'none';
       renderMembersTable();
     });
+
+    searchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        searchInput.value = '';
+        appState.searchQuery = '';
+        if (clearSearchBtn) clearSearchBtn.style.display = 'none';
+        renderMembersTable();
+        searchInput.blur();
+      }
+    });
   }
   if (clearSearchBtn) {
     clearSearchBtn.addEventListener('click', () => {
@@ -356,6 +411,18 @@ function setupEventListeners() {
       renderMembersTable(); searchInput.focus();
     });
   }
+
+  // Atajo de teclado para hora pico: presionar '/' o 'Ctrl+K' para buscar instantáneamente
+  document.addEventListener('keydown', (e) => {
+    if ((e.key === '/' || (e.ctrlKey && e.key.toLowerCase() === 'k')) && !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) {
+      e.preventDefault();
+      switchTab('dashboard');
+      if (searchInput) {
+        searchInput.focus();
+        searchInput.select();
+      }
+    }
+  });
 
   document.querySelectorAll('.filter-pill').forEach(pill => {
     pill.addEventListener('click', () => {
@@ -392,8 +459,17 @@ function setupEventListeners() {
 }
 
 function selectFilterPill(filterName) {
-  document.querySelectorAll('.filter-pill').forEach(p => p.classList.toggle('active', p.getAttribute('data-filter') === filterName));
-  appState.activeFilter = filterName;
+  if (appState.activeFilter === filterName) {
+    appState.activeFilter = 'all';
+  } else {
+    appState.activeFilter = filterName;
+  }
+  document.querySelectorAll('.stat-card').forEach(c => c.classList.remove('active-card'));
+  if (appState.activeFilter !== 'all') {
+    const cardMap = { green: 'filterCardActivos', yellow: 'filterCardPorVencer', red: 'filterCardVencidos' };
+    const activeEl = document.getElementById(cardMap[appState.activeFilter]);
+    if (activeEl) activeEl.classList.add('active-card');
+  }
   renderMembersTable();
 }
 

@@ -24,13 +24,14 @@ export function renderMembersTable() {
     return { ...member, traffic };
   });
 
-  document.getElementById('countActivos').textContent = greenCount;
-  document.getElementById('countPorVencer').textContent = yellowCount;
-  document.getElementById('countVencidos').textContent = redCount;
-  document.getElementById('countAll').textContent = appState.members.length;
-  document.getElementById('pillCountGreen').textContent = greenCount;
-  document.getElementById('pillCountYellow').textContent = yellowCount;
-  document.getElementById('pillCountRed').textContent = redCount;
+  const countActivos = document.getElementById('countActivos');
+  if (countActivos) countActivos.textContent = greenCount;
+  const countPorVencer = document.getElementById('countPorVencer');
+  if (countPorVencer) countPorVencer.textContent = yellowCount;
+  const countVencidos = document.getElementById('countVencidos');
+  if (countVencidos) countVencidos.textContent = redCount;
+  const countAll = document.getElementById('countAll');
+  if (countAll) countAll.textContent = appState.members.length;
 
   const filtered = evaluatedMembers.filter(m => {
     if (filter !== 'all' && m.traffic.status !== filter) return false;
@@ -41,6 +42,15 @@ export function renderMembersTable() {
     }
     return true;
   });
+
+  const resultsBadge = document.getElementById('resultsCountBadge');
+  if (resultsBadge) {
+    if (query || filter !== 'all') {
+      resultsBadge.textContent = `Mostrando ${filtered.length} de ${appState.members.length} socios`;
+    } else {
+      resultsBadge.textContent = `Mostrando ${appState.members.length} socios`;
+    }
+  }
 
   tbody.innerHTML = '';
   if (filtered.length === 0) {
@@ -55,7 +65,17 @@ export function renderMembersTable() {
   filtered.forEach(member => {
     const tr = document.createElement('tr');
     const statusClass = member.traffic.status;
+    if (statusClass === 'red') {
+      tr.classList.add('row-blocked');
+    }
+
     const statusBadge = `<span class="traffic-badge ${statusClass}"><span class="badge-dot"></span><span>${member.traffic.label}</span></span>`;
+    
+    // Botón de cobro adaptado según requerimiento: en rojo es desbloquear/liquidar
+    const cobrarBtnHtml = statusClass === 'red'
+      ? `<button class="btn-cobrar-table btn-urgent-cobrar" onclick="window.openPaymentModal('${member.id}')" title="Liquidar pase para autorizar acceso"><span>⚡ Desbloquear</span></button>`
+      : `<button class="btn-cobrar-table" onclick="window.openPaymentModal('${member.id}')" title="Cobrar o renovar membresía"><span>💳 Renovar</span></button>`;
+
     const deleteButtonHtml = isAdmin 
       ? `<button class="btn-action-icon danger" onclick="window.handleDeleteMember('${member.id}')" title="Eliminar socio (Permiso de Dueño)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>`
       : `<button class="btn-action-icon" disabled title="Solo el Administrador/Dueño puede borrar registros" style="opacity: 0.25; cursor: not-allowed;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></button>`;
@@ -69,7 +89,7 @@ export function renderMembersTable() {
       <td><span class="days-left-tag ${statusClass}">${member.traffic.daysText}</span></td>
       <td>
         <div class="table-actions">
-          <button class="btn-cobrar-table" onclick="window.openPaymentModal('${member.id}')" title="Cobrar o renovar membresía"><span>💳 Cobrar</span></button>
+          ${cobrarBtnHtml}
           ${deleteButtonHtml}
         </div>
       </td>

@@ -311,6 +311,11 @@ h1, h2, h3, h4, .brand-title, .stat-number, .hero-amount {
   box-shadow: var(--shadow-md);
 }
 
+.stat-card.active-card {
+  transform: translateY(-2px);
+  box-shadow: 0 0 0 3px #0284c7, var(--shadow-md);
+}
+
 .stat-card::before {
   content: "";
   position: absolute;
@@ -424,18 +429,40 @@ h1, h2, h3, h4, .brand-title, .stat-number, .hero-amount {
 
 .search-input {
   width: 100%;
-  padding-left: 3.25rem !important;
-  padding-right: 3rem !important;
-  font-size: 1.1rem !important;
+  padding-left: 3rem !important;
+  padding-right: 3.5rem !important;
+  font-size: 1.05rem !important;
   font-weight: 500;
   border: 2px solid var(--border-color) !important;
   background: #f8fafc;
+  border-radius: var(--radius-md) !important;
 }
 
 .search-input:focus {
   background: #ffffff;
   border-color: #0284c7 !important;
   box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15) !important;
+}
+
+.search-shortcut-key {
+  position: absolute;
+  right: 0.85rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: #e2e8f0;
+  border: 1px solid #cbd5e1;
+  color: #64748b;
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+.search-input:focus ~ .search-shortcut-key {
+  opacity: 0;
 }
 
 .clear-search-btn {
@@ -454,6 +481,7 @@ h1, h2, h3, h4, .brand-title, .stat-number, .hero-amount {
   justify-content: center;
   cursor: pointer;
   color: #475569;
+  z-index: 2;
 }
 
 .clear-search-btn:hover {
@@ -463,11 +491,12 @@ h1, h2, h3, h4, .brand-title, .stat-number, .hero-amount {
 /* Filtros Semáforo */
 .traffic-filters {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
 }
 
 .filter-pill {
-  padding: 0.65rem 1rem;
+  padding: 0.65rem 1.05rem;
   font-size: 0.9rem;
   font-weight: 600;
   border-radius: var(--radius-md);
@@ -475,34 +504,43 @@ h1, h2, h3, h4, .brand-title, .stat-number, .hero-amount {
   background: #ffffff;
   color: var(--text-muted);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
   white-space: nowrap;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
 }
 
 .filter-pill:hover {
-  border-color: var(--border-dark);
+  border-color: #94a3b8;
   background: var(--bg-subtle);
+  transform: translateY(-1px);
 }
 
 .filter-pill.active {
-  background: #1e293b;
+  background: #0f172a;
   color: #ffffff;
-  border-color: #1e293b;
+  border-color: #0f172a;
+  box-shadow: 0 2px 4px rgba(15, 23, 42, 0.2);
 }
 
 .filter-pill.pill-green.active {
-  background: var(--color-green);
-  border-color: var(--color-green);
+  background: #059669;
+  border-color: #047857;
+  color: #ffffff;
+  box-shadow: 0 2px 5px rgba(5, 150, 105, 0.25);
 }
 
 .filter-pill.pill-yellow.active {
-  background: var(--color-yellow);
-  border-color: var(--color-yellow);
+  background: #d97706;
+  border-color: #b45309;
+  color: #ffffff;
+  box-shadow: 0 2px 5px rgba(217, 119, 6, 0.25);
 }
 
 .filter-pill.pill-red.active {
-  background: var(--color-red);
-  border-color: var(--color-red);
+  background: #dc2626;
+  border-color: #b91c1c;
+  color: #ffffff;
+  box-shadow: 0 2px 5px rgba(220, 38, 38, 0.25);
 }
 
 /* Tabla de Clientes */
@@ -521,11 +559,31 @@ h1, h2, h3, h4, .brand-title, .stat-number, .hero-amount {
   align-items: center;
   justify-content: space-between;
   background: #fafbfc;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.table-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  flex-wrap: wrap;
 }
 
 .table-header-info h3 {
   font-size: 1.15rem;
   color: #1e293b;
+  margin: 0;
+}
+
+.results-counter-pill {
+  font-size: 0.8rem;
+  font-weight: 700;
+  background: #f1f5f9;
+  color: #475569;
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid #cbd5e1;
 }
 
 .condition-badge {
@@ -689,6 +747,25 @@ h1, h2, h3, h4, .brand-title, .stat-number, .hero-amount {
   background: linear-gradient(135deg, #059669 0%, #047857 100%);
   transform: translateY(-1px);
   box-shadow: 0 4px 8px rgba(16, 185, 129, 0.35);
+}
+
+/* Fila de socio bloqueado y botón de desbloqueo urgente */
+.traffic-table tbody tr.row-blocked {
+  background-color: #fff5f5;
+}
+
+.traffic-table tbody tr.row-blocked:hover {
+  background-color: #fee2e2;
+}
+
+.btn-cobrar-table.btn-urgent-cobrar {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  box-shadow: 0 2px 4px rgba(239, 68, 68, 0.3);
+}
+
+.btn-cobrar-table.btn-urgent-cobrar:hover {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  box-shadow: 0 4px 8px rgba(220, 38, 38, 0.4);
 }
 
 .btn-action-icon {

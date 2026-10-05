@@ -132,7 +132,7 @@ export function resetSeedData() {
 
 export function getMemberTrafficStatus(member) {
   if (!member.endDate) {
-    return { status: 'red', label: 'Sin Pase / Vencido', daysLeft: -999, daysText: 'Vencido' };
+    return { status: 'red', label: '⛔ Acceso Bloqueado', daysLeft: -999, daysText: 'Sin Pase / Vencido' };
   }
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -143,10 +143,27 @@ export function getMemberTrafficStatus(member) {
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
   if (diffDays < 0) {
-    return { status: 'red', label: 'Pase Vencido', daysLeft: diffDays, daysText: `Venció hace ${Math.abs(diffDays)} d` };
-  } else if (diffDays <= 3) {
-    return { status: 'yellow', label: 'Por Vencer', daysLeft: diffDays, daysText: diffDays === 0 ? 'Vence Hoy' : `${diffDays} día(s) restante(s)` };
+    // Requerimiento 5: Bloqueo de entrada hasta liquidar pase
+    return { 
+      status: 'red', 
+      label: '⛔ Acceso Bloqueado', 
+      daysLeft: diffDays, 
+      daysText: `Venció hace ${Math.abs(diffDays)} d` 
+    };
+  } else if (diffDays <= 2) {
+    // Requerimiento 4: Semáforo preventivo amarillo a 2 días de anticipación
+    return { 
+      status: 'yellow', 
+      label: '⚠️ Por Vencer (≤2d)', 
+      daysLeft: diffDays, 
+      daysText: diffDays === 0 ? '¡Vence Hoy!' : `${diffDays} día(s) restante(s)` 
+    };
   } else {
-    return { status: 'green', label: 'Activo / Vigente', daysLeft: diffDays, daysText: `${diffDays} días restantes` };
+    return { 
+      status: 'green', 
+      label: '✅ Acceso Permitido', 
+      daysLeft: diffDays, 
+      daysText: `${diffDays} días restantes` 
+    };
   }
 }

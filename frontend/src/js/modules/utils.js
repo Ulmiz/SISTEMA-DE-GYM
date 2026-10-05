@@ -23,6 +23,30 @@ export function addDaysToDate(dateString, days) {
   return formatDateToISO(d);
 }
 
+// Cómputo exacto de pases según Requerimientos.md (Bloque 1, Pregunta 3)
+export function calculatePassDueDate(startDateString, passType) {
+  if (passType === 'visita') {
+    // Visita vence al cierre del mismo día
+    return startDateString;
+  }
+  if (passType === 'semanal') {
+    return addDaysToDate(startDateString, 7);
+  }
+  if (passType === 'mensual') {
+    // Mensual: Mismo día del mes siguiente
+    const [year, month, day] = startDateString.split('-').map(Number);
+    // new Date(year, month, day) donde 'month' (1-12) representa el mes siguiente ya que en JS los meses son 0-11
+    const nextMonth = new Date(year, month, day);
+    return formatDateToISO(nextMonth);
+  }
+  if (passType === 'anual') {
+    const [year, month, day] = startDateString.split('-').map(Number);
+    const nextYear = new Date(year + 1, month - 1, day);
+    return formatDateToISO(nextYear);
+  }
+  return addDaysToDate(startDateString, 30);
+}
+
 export function formatDisplayDate(dateString) {
   if (!dateString) return '--/--/----';
   const [year, month, day] = dateString.split('-').map(Number);
