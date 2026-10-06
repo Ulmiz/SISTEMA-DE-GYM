@@ -91,8 +91,8 @@ export function renderAdminView() {
             <h4>Zona de Mantenimiento de Datos (Exclusivo Administrador)</h4>
             <p>Estas opciones solo están disponibles con el rol de Administrador/Dueño según el requerimiento.</p>
             <div class="danger-actions">
-              <button class="btn btn-outline" id="btnLoadSampleData">Restaurar Datos de Demostración</button>
-              <button class="btn btn-danger" id="btnClearAllData">Reiniciar Base de Datos</button>
+              <button class="btn btn-outline" id="btnLoadSampleData">Sincronizar con el Backend</button>
+              <button class="btn btn-danger" id="btnClearAllData">Limpiar Historial Local de Tickets</button>
             </div>
           </div>
         </div>

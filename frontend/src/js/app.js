@@ -1,5 +1,5 @@
-import { getTodayString, formatDateToISO, getDateOffset, addDaysToDate, calculatePassDueDate, formatDisplayDate, formatCurrency, showToast } from './modules/utils.js';
-import { appState, loadDataFromStorage, saveMembersToStorage, saveTransactionsToStorage, savePricesToStorage, getMemberTrafficStatus, resetSeedData, PASS_DURATIONS, PASS_NAMES } from './modules/state.js';
+import { getTodayString, formatDateToISO, addDaysToDate, formatDisplayDate, formatCurrency, showToast } from './modules/utils.js';
+import { appState, loadDataFromStorage, saveMembersCache, loadMembersCache, saveTransactionsToStorage, savePricesToStorage, getMemberTrafficStatus, addTransaction, hideMember, isHiddenMember, setPendingPayment, isPendingPayment, PASS_DURATIONS, PASS_NAMES } from './modules/state.js';
 import { renderMembersTable, applyRolePermissions, updateTodayStats } from './modules/ui.js';
 import { api } from './modules/api.js';
 
@@ -44,18 +44,36 @@ function mountComponents() {
   }
 }
 
-function initApp() {
+// Carga los socios reales desde el backend; si no responde, usa la última copia local.
+async function refreshMembers() {
+  try {
+    const members = await api.getMembers();
+    appState.backendOnline = true;
+    appState.members = members.filter(m => !isHiddenMember(m.id));
+    saveMembersCache(appState.members);
+    renderMembersTable();
+    return true;
+  } catch (error) {
+    appState.backendOnline = false;
+    appState.members = loadMembersCache().filter(m => !isHiddenMember(m.id));
+    renderMembersTable();
+    showToast(
+      appState.members.length > 0 ? `${error.message} Mostrando la última copia local.` : error.message,
+      'error'
+    );
+    return false;
+  }
+}
+
+async function initApp() {
   mountComponents();
   loadDataFromStorage();
   setupEventListeners();
   updateTimeDisplay();
   setInterval(updateTimeDisplay, 1000);
 
-  const today = getTodayString();
-  const startDateInput = document.getElementById('memberStartDate');
-  if (startDateInput) startDateInput.value = today;
   const corteDateFilter = document.getElementById('corteDateFilter');
-  if (corteDateFilter) corteDateFilter.value = today;
+  if (corteDateFilter) corteDateFilter.value = getTodayString();
 
   updateRegistrationEndDatePreview();
   populatePricesInAdminForm();
@@ -63,6 +81,8 @@ function initApp() {
   renderMembersTable();
   updateTodayStats(getTodayString);
   renderCorteView();
+
+  await refreshMembers();
 }
 
 function setRole(newRole) {
@@ -87,6 +107,7 @@ export function switchTab(tabId) {
   if (tabId === 'dashboard') {
     renderMembersTable();
     updateTodayStats(getTodayString);
+    refreshMembers(); // siempre contra datos reales del backend
     const search = document.getElementById('searchInput');
     if (search) search.focus();
   } else if (tabId === 'corte') {
@@ -99,8 +120,8 @@ export function switchTab(tabId) {
 
 function updateRegistrationEndDatePreview() {
   const passType = document.getElementById('memberPassType').value;
-  const startDate = document.getElementById('memberStartDate').value || getTodayString();
-  const endDate = calculatePassDueDate(startDate, passType);
+  // El backend ignora fechas manuales: siempre es fin de hoy + días exactos del pase.
+  const endDate = addDaysToDate(getTodayString(), PASS_DURATIONS[passType] || PASS_DURATIONS.mensual);
 
   const calcEndDateText = document.getElementById('calcEndDateText');
   const calcDurationText = document.getElementById('calcDurationText');
@@ -108,16 +129,12 @@ function updateRegistrationEndDatePreview() {
 
   if (calcEndDateText) calcEndDateText.textContent = formatDisplayDate(endDate);
   if (calcDurationText) {
-    calcDurationText.textContent = passType === 'visita' 
-      ? 'Vence hoy al cierre del día' 
-      : passType === 'mensual' 
-        ? 'Mismo día del mes siguiente' 
-        : `${PASS_DURATIONS[passType]} días de vigencia`;
+    calcDurationText.textContent = `${PASS_DURATIONS[passType]} días desde hoy (cálculo automático)`;
   }
   if (calcPriceText) calcPriceText.textContent = formatCurrency(appState.prices[passType] || 0);
 }
 
-function handleMemberRegisterSubmit(e) {
+async function handleMemberRegisterSubmit(e) {
   e.preventDefault();
   const nameInput = document.getElementById('memberName');
   const phoneInput = document.getElementById('memberPhone');
@@ -146,42 +163,69 @@ function handleMemberRegisterSubmit(e) {
   }
 
   const passType = document.getElementById('memberPassType').value;
-  const startDate = document.getElementById('memberStartDate').value || getTodayString();
-  const endDate = calculatePassDueDate(startDate, passType);
-
   const payNowChecked = document.getElementById('checkPayNow').checked;
   const paymentMethodInput = document.querySelector('input[name="immediatePaymentMethod"]:checked');
   const paymentMethod = paymentMethodInput ? paymentMethodInput.value : 'efectivo';
-  
-  const newMemberId = 'MEM-' + String(appState.members.length + 1).padStart(3, '0');
-  const newMember = {
-    id: newMemberId, name, phone, passType, startDate,
-    endDate: payNowChecked ? endDate : getDateOffset(-1),
-    status: payNowChecked ? 'active' : 'expired'
-  };
+  const amount = appState.prices[passType] || 0;
 
-  appState.members.unshift(newMember);
-  saveMembersToStorage();
+  const submitBtn = document.getElementById('btnSubmitRegister');
+  if (submitBtn) submitBtn.disabled = true;
 
-  if (payNowChecked) {
-    const amount = appState.prices[passType] || 0;
-    const ticket = createTransaction(newMember, passType, amount, paymentMethod, endDate);
-    showTicketModal(ticket);
-    showToast(`✅ Socio ${name} registrado y pago acreditado`, 'success');
-  } else {
-    showToast(`✅ Socio ${name} registrado con éxito (Cobro pendiente)`, 'success');
-    switchTab('dashboard');
+  try {
+    // 1) Alta real en el backend (la vigencia la calcula el servidor).
+    let member = await api.createMember({ name, phone, passType });
+    appState.members.unshift(member);
+    saveMembersCache(appState.members);
+
+    if (payNowChecked) {
+      // 2) Cobro real: registra el pago y reinicia la vigencia desde la fecha de cobro.
+      try {
+        const { member: cobrado, payment } = await api.chargeMember(member.id, { amount, paymentMethod });
+        member = applyMemberUpdate(cobrado);
+        const ticket = buildTransactionFromPayment(member, payment);
+        addTransaction(ticket);
+        renderMembersTable();
+        renderCorteView();
+        showTicketModal(ticket);
+        showToast(`✅ Socio ${name} registrado y pago acreditado`, 'success');
+      } catch (cobroError) {
+        setPendingPayment(member.id, true);
+        showToast(`Socio registrado, pero el cobro falló: ${cobroError.message}`, 'error');
+      }
+    } else {
+      // Alta sin pago: acceso bloqueado hasta liquidar (Requerimiento 5).
+      setPendingPayment(member.id, true);
+      showToast(`✅ Socio ${name} registrado con éxito (Cobro pendiente)`, 'success');
+      switchTab('dashboard');
+    }
+
+    document.getElementById('memberRegisterForm').reset();
+    updateRegistrationEndDatePreview();
+    renderMembersTable();
+    updateTodayStats(getTodayString);
+    renderCorteView();
+  } catch (error) {
+    if (error.status === 409) {
+      // Teléfono duplicado: lo manda al listado buscándolo (Requerimiento 2).
+      showToast(`⚠️ ${error.message}`, 'error');
+      switchTab('dashboard');
+      const searchInput = document.getElementById('searchInput');
+      if (searchInput) {
+        searchInput.value = phone;
+        appState.searchQuery = phone;
+        renderMembersTable();
+        searchInput.focus();
+      }
+    } else {
+      showToast(error.message, 'error');
+    }
+  } finally {
+    if (submitBtn) submitBtn.disabled = false;
   }
-
-  document.getElementById('memberRegisterForm').reset();
-  document.getElementById('memberStartDate').value = getTodayString();
-  updateRegistrationEndDatePreview();
-  renderMembersTable();
-  updateTodayStats(getTodayString);
 }
 
 export function openPaymentModal(memberId) {
-  const member = appState.members.find(m => m.id === memberId);
+  const member = appState.members.find(m => String(m.id) === String(memberId));
   if (!member) return;
   const modal = document.getElementById('paymentModal');
   document.getElementById('payMemberId').value = member.id;
@@ -191,66 +235,83 @@ export function openPaymentModal(memberId) {
   const badge = document.getElementById('payMemberStatusBadge');
   badge.className = `pm-badge traffic-badge ${traffic.status}`;
   badge.textContent = traffic.label;
-  document.getElementById('payPassType').value = member.passType || 'mensual';
+  // El backend renueva el pase vigente del socio: no se puede cambiar de tipo en el cobro.
+  const payPassType = document.getElementById('payPassType');
+  payPassType.value = member.passType || 'mensual';
+  payPassType.disabled = true;
+  payPassType.title = 'El cobro renueva el pase vigente del socio';
   updatePaymentModalCalculations();
   modal.classList.add('active');
 }
 
 function updatePaymentModalCalculations() {
   const memberId = document.getElementById('payMemberId').value;
-  const member = appState.members.find(m => m.id === memberId);
-  const passType = document.getElementById('payPassType').value;
-  const duration = PASS_DURATIONS[passType] || 30;
+  const member = appState.members.find(m => String(m.id) === String(memberId));
+  if (!member) return;
+  const passType = member.passType || 'mensual';
 
-  // Requerimiento 1: Si paga hoy, se reinicia desde la fecha de cobro
-  const baseDate = getTodayString();
-  const newDueDate = calculatePassDueDate(baseDate, passType);
+  // Requerimiento 1: la vigencia se reinicia desde la fecha de cobro.
+  // Mismo cálculo que hace el backend: fin de hoy + días exactos del pase.
+  const newDueDate = addDaysToDate(getTodayString(), PASS_DURATIONS[passType] || PASS_DURATIONS.mensual);
   const price = appState.prices[passType] || 0;
 
   document.getElementById('payNewDueDateText').textContent = formatDisplayDate(newDueDate);
   document.getElementById('payAmountText').textContent = formatCurrency(price);
 }
 
-function handlePaymentSubmit(e) {
+async function handlePaymentSubmit(e) {
   e.preventDefault();
   const memberId = document.getElementById('payMemberId').value;
-  const member = appState.members.find(m => m.id === memberId);
+  const member = appState.members.find(m => String(m.id) === String(memberId));
   if (!member) return;
 
-  const passType = document.getElementById('payPassType').value;
   const methodInput = document.querySelector('input[name="payMethod"]:checked');
   const paymentMethod = methodInput ? methodInput.value : 'efectivo';
-  const amount = appState.prices[passType] || 0;
+  const amount = appState.prices[member.passType] || 0;
 
-  // Requerimiento 1: Vigencia se reinicia desde la fecha de cobro
-  const baseDate = getTodayString();
-  const newDueDate = calculatePassDueDate(baseDate, passType);
-  member.passType = passType;
-  member.endDate = newDueDate;
-  member.status = 'active';
-  saveMembersToStorage();
+  const confirmBtn = document.getElementById('btnConfirmPayment');
+  if (confirmBtn) confirmBtn.disabled = true;
 
-  const ticket = createTransaction(member, passType, amount, paymentMethod, newDueDate);
-  document.getElementById('paymentModal').classList.remove('active');
-  renderMembersTable();
-  updateTodayStats(getTodayString);
-  renderCorteView();
-  showTicketModal(ticket);
-  showToast(`Cobro exitoso: ${formatCurrency(amount)} registrado`, 'success');
+  try {
+    // El backend registra el pago y renueva la vigencia desde la fecha de cobro.
+    const { member: cobrado, payment } = await api.chargeMember(member.id, { amount, paymentMethod });
+    const actualizado = applyMemberUpdate(cobrado);
+    const ticket = buildTransactionFromPayment(actualizado, payment);
+    addTransaction(ticket);
+
+    document.getElementById('paymentModal').classList.remove('active');
+    renderMembersTable();
+    updateTodayStats(getTodayString);
+    renderCorteView();
+    showTicketModal(ticket);
+    showToast(`Cobro exitoso: ${formatCurrency(amount)} registrado`, 'success');
+  } catch (error) {
+    showToast(error.message, 'error');
+  } finally {
+    if (confirmBtn) confirmBtn.disabled = false;
+  }
 }
 
-function createTransaction(member, passType, amount, paymentMethod, expirationDate) {
-  const now = new Date();
-  const ticketNumber = 'TKT-' + (1000 + appState.transactions.length + 1);
-  const transaction = {
-    id: ticketNumber, memberId: member.id, memberName: member.name, memberPhone: member.phone,
-    passType, passName: PASS_NAMES[passType] || passType, amount, paymentMethod,
-    date: getTodayString(), time: `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`,
-    expirationDate, cashier: appState.role === 'admin' ? 'Administrador' : 'Recepcionista'
+// Aplica un socio devuelto por el backend al estado local y cachea la lista.
+function applyMemberUpdate(member) {
+  const index = appState.members.findIndex(m => String(m.id) === String(member.id));
+  if (index >= 0) appState.members[index] = member;
+  else appState.members.unshift(member);
+  setPendingPayment(member.id, false);
+  saveMembersCache(appState.members);
+  return member;
+}
+
+// Ticket local generado a partir del pago real registrado por el backend.
+function buildTransactionFromPayment(member, payment) {
+  const passType = member.passType;
+  return {
+    id: 'TKT-' + payment.id, memberId: member.id, memberName: member.name, memberPhone: member.phone,
+    passType, passName: PASS_NAMES[passType] || passType,
+    amount: payment.amount, paymentMethod: payment.paymentMethod,
+    date: payment.date, time: payment.time,
+    expirationDate: member.endDate, cashier: appState.role === 'admin' ? 'Administrador' : 'Recepcionista'
   };
-  appState.transactions.unshift(transaction);
-  saveTransactionsToStorage();
-  return transaction;
 }
 
 function showTicketModal(ticket) {
@@ -333,15 +394,17 @@ export function handleDeleteMember(memberId) {
     showToast('Acceso Denegado: Solo el Administrador/Dueño puede eliminar socios.', 'error');
     return;
   }
-  const member = appState.members.find(m => m.id === memberId);
+  const member = appState.members.find(m => String(m.id) === String(memberId));
   if (!member) return;
-  if (!confirm(`¿Está seguro de eliminar al socio "${member.name}"?`)) return;
+  if (!confirm(`¿Está seguro de ocultar al socio "${member.name}"?`)) return;
 
-  appState.members = appState.members.filter(m => m.id !== memberId);
-  saveMembersToStorage();
+  // Requerimiento 14: borrado lógico (se oculta de la vista, se conserva el registro).
+  hideMember(memberId);
+  appState.members = appState.members.filter(m => String(m.id) !== String(memberId));
+  saveMembersCache(appState.members);
   renderMembersTable();
   updateTodayStats(getTodayString);
-  showToast(`Socio ${member.name} eliminado`, 'info');
+  showToast(`Socio ${member.name} oculto de la lista (borrado lógico)`, 'info');
 }
 
 function populatePricesInAdminForm() {
@@ -440,7 +503,6 @@ function setupEventListeners() {
   document.getElementById('goToCajaCard')?.addEventListener('click', () => switchTab('corte'));
   document.getElementById('btnResetFilters')?.addEventListener('click', () => { if(searchInput) searchInput.value = ''; appState.searchQuery = ''; selectFilterPill('all'); });
   document.getElementById('memberPassType')?.addEventListener('change', updateRegistrationEndDatePreview);
-  document.getElementById('memberStartDate')?.addEventListener('change', updateRegistrationEndDatePreview);
   document.getElementById('checkPayNow')?.addEventListener('change', (e) => document.getElementById('immediatePayOptions').style.display = e.target.checked ? 'block' : 'none');
   document.getElementById('memberRegisterForm')?.addEventListener('submit', handleMemberRegisterSubmit);
   document.getElementById('btnCancelRegister')?.addEventListener('click', () => switchTab('dashboard'));
@@ -454,8 +516,8 @@ function setupEventListeners() {
   document.getElementById('corteDateFilter')?.addEventListener('change', renderCorteView);
   document.getElementById('btnPrintCorte')?.addEventListener('click', () => window.print());
   document.getElementById('pricesForm')?.addEventListener('submit', handlePricesSubmit);
-  document.getElementById('btnLoadSampleData')?.addEventListener('click', () => { if(confirm('¿Recargar prueba?')) { resetSeedData(); renderMembersTable(); renderCorteView(); showToast('Recargado', 'success'); }});
-  document.getElementById('btnClearAllData')?.addEventListener('click', () => { if(confirm('¿Borrar todo?')) { appState.members=[]; appState.transactions=[]; saveMembersToStorage(); saveTransactionsToStorage(); renderMembersTable(); renderCorteView(); showToast('Borrado', 'info'); }});
+  document.getElementById('btnLoadSampleData')?.addEventListener('click', async () => { if (await refreshMembers()) showToast('Datos sincronizados con el backend', 'success'); });
+  document.getElementById('btnClearAllData')?.addEventListener('click', () => { if(confirm('¿Limpiar el historial local de tickets? No toca los datos del backend.')) { appState.transactions=[]; saveTransactionsToStorage(); updateTodayStats(getTodayString); renderCorteView(); showToast('Historial local de tickets limpiado', 'info'); }});
 }
 
 function selectFilterPill(filterName) {

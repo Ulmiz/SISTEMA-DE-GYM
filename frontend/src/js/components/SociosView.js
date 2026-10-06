@@ -49,14 +49,13 @@ export function renderSociosView() {
               </select>
             </div>
 
-            <!-- Fecha de Inicio -->
+            <!-- La fecha de inicio la genera el backend (now): el campo manual se eliminó -->
             <div class="form-field">
-              <label for="memberStartDate" class="field-label">Fecha de Inicio</label>
-              <input 
-                type="date" 
-                id="memberStartDate" 
-                class="touch-input"
-              >
+              <label class="field-label">Fecha de Inicio <span class="auto-badge">Automática</span></label>
+              <div class="auto-calc-display">
+                <span class="calc-date" id="calcStartDateText">HOY</span>
+                <span class="calc-duration">Alta registrada por el sistema</span>
+              </div>
             </div>
 
             <!-- Fecha de Vencimiento Calculada Automáticamente -->
