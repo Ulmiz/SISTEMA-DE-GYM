@@ -348,16 +348,41 @@ function renderCorteView() {
     if (passCounts[tx.passType]) { passCounts[tx.passType].count++; passCounts[tx.passType].total += tx.amount; }
   });
 
-  document.getElementById('corteTotalAmount').textContent = formatCurrency(totalAmount);
-  document.getElementById('corteTotalTransactions').textContent = `${transactionsOfDate.length} transacción(es)`;
-  document.getElementById('corteCashCount').textContent = `${cashCount} pago(s)`;
-  document.getElementById('corteCashTotal').textContent = formatCurrency(cashTotal);
-  document.getElementById('corteTransferCount').textContent = `${transferCount} pago(s)`;
-  document.getElementById('corteTransferTotal').textContent = formatCurrency(transferTotal);
+  const totalAmountEl = document.getElementById('corteTotalAmount');
+  const totalTransactionsEl = document.getElementById('corteTotalTransactions');
+  if (totalAmountEl) totalAmountEl.textContent = formatCurrency(totalAmount);
+  if (totalTransactionsEl) totalTransactionsEl.textContent = `${transactionsOfDate.length} transacción(es)`;
+
+  const summaryTotalAmountEl = document.getElementById('corteSummaryTotalAmount');
+  const summaryTotalTransactionsEl = document.getElementById('corteSummaryTotalTransactions');
+  if (summaryTotalAmountEl) summaryTotalAmountEl.textContent = formatCurrency(totalAmount);
+  if (summaryTotalTransactionsEl) summaryTotalTransactionsEl.textContent = `${transactionsOfDate.length} transacciones registradas`;
+
+  const cashCountEl = document.getElementById('corteCashCount');
+  const cashTotalEl = document.getElementById('corteCashTotal');
+  const summaryCashCountEl = document.getElementById('corteSummaryCashCount');
+  const summaryCashTotalEl = document.getElementById('corteSummaryCashTotal');
+  if (cashCountEl) cashCountEl.textContent = `${cashCount} pago(s)`;
+  if (cashTotalEl) cashTotalEl.textContent = formatCurrency(cashTotal);
+  if (summaryCashCountEl) summaryCashCountEl.textContent = `${cashCount} pagos`;
+  if (summaryCashTotalEl) summaryCashTotalEl.textContent = formatCurrency(cashTotal);
+
+  const transferCountEl = document.getElementById('corteTransferCount');
+  const transferTotalEl = document.getElementById('corteTransferTotal');
+  const summaryTransferCountEl = document.getElementById('corteSummaryTransferCount');
+  const summaryTransferTotalEl = document.getElementById('corteSummaryTransferTotal');
+  if (transferCountEl) transferCountEl.textContent = `${transferCount} pago(s)`;
+  if (transferTotalEl) transferTotalEl.textContent = formatCurrency(transferTotal);
+  if (summaryTransferCountEl) summaryTransferCountEl.textContent = `${transferCount} pagos`;
+  if (summaryTransferTotalEl) summaryTransferTotalEl.textContent = formatCurrency(transferTotal);
 
   Object.keys(passCounts).forEach(k => {
-    document.getElementById(`cortePass${k.charAt(0).toUpperCase() + k.slice(1)}Count`).textContent = passCounts[k].count;
-    document.getElementById(`cortePass${k.charAt(0).toUpperCase() + k.slice(1)}Total`).textContent = formatCurrency(passCounts[k].total);
+    const countId = `cortePass${k.charAt(0).toUpperCase() + k.slice(1)}Count`;
+    const totalId = `cortePass${k.charAt(0).toUpperCase() + k.slice(1)}Total`;
+    const countEl = document.getElementById(countId);
+    const totalEl = document.getElementById(totalId);
+    if (countEl) countEl.textContent = passCounts[k].count;
+    if (totalEl) totalEl.textContent = formatCurrency(passCounts[k].total);
   });
 
   const badgeDate = document.getElementById('corteTableDateBadge');

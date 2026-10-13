@@ -1136,12 +1136,15 @@ h1, h2, h3, h4, .brand-title, .stat-number, .hero-amount {
 /* ==========================================================================
    VISTA 3: CORTE DE CAJA (MÓDULO 4)
    ========================================================================== */
-.corte-container {
-  max-width: 1100px;
+
+/* Contenedor principal del módulo */
+.corte-caja-container {
+  max-width: 1200px;
   margin: 0 auto;
+  padding: 2rem;
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 2rem;
 }
 
 .corte-header {
@@ -1163,7 +1166,54 @@ h1, h2, h3, h4, .brand-title, .stat-number, .hero-amount {
   font-weight: 600;
 }
 
-/* Gran Destacado de Total Cobrado */
+/* Grid de tarjetas de resumen (métricas de caja) */
+.resumen-tarjetas-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 2rem;
+}
+
+/* Tarjeta de resumen individual */
+.tarjeta-resumen {
+  background: #ffffff;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 1.75rem;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.tarjeta-resumen:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--border-dark);
+}
+
+.tarjeta-resumen .tarjeta-titulo {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 0.5rem;
+}
+
+.tarjeta-resumen .tarjeta-valor {
+  font-family: 'Outfit', sans-serif;
+  font-size: 2.25rem;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.1;
+  margin-bottom: 0.25rem;
+}
+
+.tarjeta-resumen .tarjeta-sub {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+/* Total principal destacado (hero) */
 .corte-total-hero {
   background: linear-gradient(135deg, #0284c7 0%, #075985 100%);
   color: #ffffff;
@@ -1194,44 +1244,54 @@ h1, h2, h3, h4, .brand-title, .stat-number, .hero-amount {
   font-weight: 500;
 }
 
-/* Desgloses Grid */
+/* Desgloses (corte-card) integrados dentro del grid de resumen */
 .corte-breakdowns-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 2rem;
 }
 
 .corte-card {
   background: #ffffff;
-  border-radius: var(--radius-lg);
   border: 1px solid var(--border-color);
+  border-radius: 12px;
   box-shadow: var(--shadow-sm);
   overflow: hidden;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.corte-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--border-dark);
 }
 
 .corte-card-header {
-  padding: 1.1rem 1.5rem;
-  background: #f8fafc;
+  padding: 1.25rem 1.75rem;
+  background: var(--bg-subtle);
   border-bottom: 1px solid var(--border-color);
+  border-radius: 12px 12px 0 0;
 }
 
 .corte-card-header h4 {
   font-size: 1.05rem;
   color: #1e293b;
+  margin: 0;
 }
 
 .corte-card-body {
-  padding: 1.25rem 1.5rem;
+  padding: 1.5rem 1.75rem;
   display: flex;
   flex-direction: column;
-  gap: 0.85rem;
+  gap: 1rem;
 }
 
+/* Fila de desglose */
 .breakdown-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding-bottom: 0.75rem;
+  padding-bottom: 0.85rem;
   border-bottom: 1px solid #f1f5f9;
 }
 
@@ -1271,13 +1331,14 @@ h1, h2, h3, h4, .brand-title, .stat-number, .hero-amount {
   font-size: 0.85rem;
   color: var(--text-muted);
   background: var(--bg-subtle);
-  padding: 0.2rem 0.5rem;
+  padding: 0.25rem 0.6rem;
   border-radius: 4px;
+  font-weight: 600;
 }
 
 .row-val {
   font-family: 'Outfit', sans-serif;
-  font-size: 1.15rem;
+  font-size: 1.25rem;
   font-weight: 700;
   color: #0f172a;
 }
@@ -1877,6 +1938,7 @@ h1, h2, h3, h4, .brand-title, .stat-number, .hero-amount {
     grid-template-columns: repeat(2, 1fr);
   }
   
+  .resumen-tarjetas-grid,
   .corte-breakdowns-grid {
     grid-template-columns: 1fr;
   }

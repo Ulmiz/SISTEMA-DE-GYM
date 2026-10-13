@@ -1,7 +1,7 @@
 export function renderCorteViewTemplate() {
   return `
     <section class="tab-view" id="view-corte">
-      <div class="corte-container">
+      <div class="corte-caja-container">
         <!-- Encabezado de Corte -->
         <div class="corte-header">
           <div>
@@ -29,7 +29,31 @@ export function renderCorteViewTemplate() {
           <div class="hero-meta" id="corteTotalTransactions">0 transacciones registradas</div>
         </div>
 
-        <!-- Desgloses Clave (Requerimiento: Visitas, Mensualidades y Método de Pago) -->
+        <!-- Resumen de Caja: Grid de Tarjetas de Métricas -->
+        <div class="resumen-tarjetas-grid">
+          <!-- Tarjeta Total Principal -->
+          <div class="tarjeta-resumen">
+            <div class="tarjeta-titulo">TOTAL RECAUDADO</div>
+            <div class="tarjeta-valor" id="corteSummaryTotalAmount">$0.00</div>
+            <div class="tarjeta-sub" id="corteSummaryTotalTransactions">0 transacciones registradas</div>
+          </div>
+
+          <!-- Tarjeta Efectivo -->
+          <div class="tarjeta-resumen">
+            <div class="tarjeta-titulo">EFECTIVO</div>
+            <div class="tarjeta-valor" id="corteSummaryCashTotal">$0.00</div>
+            <div class="tarjeta-sub" id="corteSummaryCashCount">0 pagos</div>
+          </div>
+
+          <!-- Tarjeta Transferencias -->
+          <div class="tarjeta-resumen">
+            <div class="tarjeta-titulo">TRANSFERENCIAS</div>
+            <div class="tarjeta-valor" id="corteSummaryTransferTotal">$0.00</div>
+            <div class="tarjeta-sub" id="corteSummaryTransferCount">0 pagos</div>
+          </div>
+        </div>
+
+        <!-- Desgloses Detallados -->
         <div class="corte-breakdowns-grid">
           <!-- Desglose por Método de Pago -->
           <div class="corte-card">
