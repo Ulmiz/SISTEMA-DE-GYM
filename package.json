@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "node frontend/server.mjs",
     "test": "node frontend/test/ui.smoke.mjs",
+    "test:frontend": "node frontend/test/paymentModal.test.mjs",
     "test:backend": "npm --prefix ../gym-backend test",
     "test:all": "npm test && npm --prefix ../gym-backend test"
   },

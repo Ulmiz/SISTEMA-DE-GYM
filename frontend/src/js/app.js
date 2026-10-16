@@ -17,6 +17,8 @@ window.handleDeleteMember = handleDeleteMember;
 window.openPaymentModal = openPaymentModal;
 window.switchTab = switchTab;
 window.reprintTicket = reprintTicket;
+window.resetPaymentMethodSelection = resetPaymentMethodSelection;
+window.updatePaymentMethodState = updatePaymentMethodState;
 
 function mountComponents() {
   const headerNav = document.getElementById('headerNav');
@@ -240,8 +242,54 @@ export function openPaymentModal(memberId) {
   payPassType.value = member.passType || 'mensual';
   payPassType.disabled = true;
   payPassType.title = 'El cobro renueva el pase vigente del socio';
+
+  // Requerimiento 3.1: Modal emergente que obligue a elegir entre "Efectivo" o "Transferencia" para habilitar confirmación
+  resetPaymentMethodSelection();
+
   updatePaymentModalCalculations();
   modal.classList.add('active');
+}
+
+export function resetPaymentMethodSelection() {
+  const methodInputs = document.querySelectorAll('input[name="payMethod"]');
+  methodInputs.forEach(input => {
+    input.checked = false;
+  });
+  updatePaymentMethodState(null);
+}
+
+export function updatePaymentMethodState(selectedMethod) {
+  const confirmBtn = document.getElementById('btnConfirmPayment');
+  const badge = document.getElementById('payMethodBadge');
+  const notice = document.getElementById('paySelectionNotice');
+
+  if (selectedMethod) {
+    if (confirmBtn) {
+      confirmBtn.disabled = false;
+      confirmBtn.title = 'Confirmar el cobro registrado';
+    }
+    if (badge) {
+      badge.className = 'method-req-badge selected';
+      badge.textContent = selectedMethod === 'efectivo' ? '💵 Efectivo elegido' : '💳 Transferencia elegida';
+    }
+    if (notice) {
+      notice.className = 'payment-selection-notice ready';
+      notice.innerHTML = `<span class="notice-icon">✅</span><span class="notice-text">Método seleccionado: <strong>${selectedMethod === 'efectivo' ? 'Efectivo' : 'Transferencia'}</strong>. Confirmación habilitada.</span>`;
+    }
+  } else {
+    if (confirmBtn) {
+      confirmBtn.disabled = true;
+      confirmBtn.title = 'Debes seleccionar Efectivo o Transferencia para habilitar la confirmación';
+    }
+    if (badge) {
+      badge.className = 'method-req-badge pending';
+      badge.textContent = 'Selección obligatoria';
+    }
+    if (notice) {
+      notice.className = 'payment-selection-notice pending';
+      notice.innerHTML = `<span class="notice-icon">⚠️</span><span class="notice-text">Selecciona <strong>Efectivo</strong> o <strong>Transferencia</strong> para habilitar la confirmación.</span>`;
+    }
+  }
 }
 
 function updatePaymentModalCalculations() {
@@ -266,7 +314,13 @@ async function handlePaymentSubmit(e) {
   if (!member) return;
 
   const methodInput = document.querySelector('input[name="payMethod"]:checked');
-  const paymentMethod = methodInput ? methodInput.value : 'efectivo';
+  if (!methodInput) {
+    updatePaymentMethodState(null);
+    showToast('⚠️ Obligatorio: Debes seleccionar Efectivo o Transferencia para confirmar el cobro', 'warning');
+    return;
+  }
+
+  const paymentMethod = methodInput.value;
   const amount = appState.prices[member.passType] || 0;
 
   const confirmBtn = document.getElementById('btnConfirmPayment');
@@ -280,15 +334,17 @@ async function handlePaymentSubmit(e) {
     addTransaction(ticket);
 
     document.getElementById('paymentModal').classList.remove('active');
+    resetPaymentMethodSelection();
     renderMembersTable();
     updateTodayStats(getTodayString);
     renderCorteView();
     showTicketModal(ticket);
-    showToast(`Cobro exitoso: ${formatCurrency(amount)} registrado`, 'success');
+    showToast(`Cobro exitoso: ${formatCurrency(amount)} registrado (${paymentMethod === 'efectivo' ? 'Efectivo' : 'Transferencia'})`, 'success');
   } catch (error) {
     showToast(error.message, 'error');
   } finally {
-    if (confirmBtn) confirmBtn.disabled = false;
+    const currentChecked = document.querySelector('input[name="payMethod"]:checked');
+    if (confirmBtn) confirmBtn.disabled = !currentChecked;
   }
 }
 
@@ -533,8 +589,34 @@ function setupEventListeners() {
   document.getElementById('btnCancelRegister')?.addEventListener('click', () => switchTab('dashboard'));
   document.getElementById('payPassType')?.addEventListener('change', updatePaymentModalCalculations);
   document.getElementById('paymentForm')?.addEventListener('submit', handlePaymentSubmit);
-  document.getElementById('closePaymentModal')?.addEventListener('click', () => document.getElementById('paymentModal').classList.remove('active'));
-  document.getElementById('btnCancelPayment')?.addEventListener('click', () => document.getElementById('paymentModal').classList.remove('active'));
+
+  // Requerimiento 3.1: Habilitar botón de confirmación en cobro rápido al seleccionar Efectivo o Transferencia
+  document.querySelectorAll('input[name="payMethod"]').forEach(radio => {
+    radio.addEventListener('change', (e) => {
+      if (e.target.checked) {
+        updatePaymentMethodState(e.target.value);
+      }
+    });
+  });
+
+  const paymentSelectorContainer = document.getElementById('paymentMethodSelector');
+  if (paymentSelectorContainer) {
+    paymentSelectorContainer.addEventListener('click', () => {
+      const activeRadio = document.querySelector('input[name="payMethod"]:checked');
+      if (activeRadio) {
+        updatePaymentMethodState(activeRadio.value);
+      }
+    });
+  }
+
+  document.getElementById('closePaymentModal')?.addEventListener('click', () => {
+    document.getElementById('paymentModal').classList.remove('active');
+    resetPaymentMethodSelection();
+  });
+  document.getElementById('btnCancelPayment')?.addEventListener('click', () => {
+    document.getElementById('paymentModal').classList.remove('active');
+    resetPaymentMethodSelection();
+  });
   document.getElementById('closeTicketModal')?.addEventListener('click', () => document.getElementById('ticketModal').classList.remove('active'));
   document.getElementById('btnCloseTicket')?.addEventListener('click', () => document.getElementById('ticketModal').classList.remove('active'));
   document.getElementById('btnPrintReceipt')?.addEventListener('click', () => window.print());

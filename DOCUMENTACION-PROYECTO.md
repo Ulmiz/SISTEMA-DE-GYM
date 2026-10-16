@@ -151,7 +151,7 @@ npm run test:all                 # ambas suites
 | Teléfono único (bloqueo de duplicados) | ✅ | 409 → salta al buscador |
 | Renovación desde la fecha de cobro | ✅ | Regla alineada en backend y front |
 | Alta + cálculo de vencimiento | ⚠️ | Backend usa fin de día +1/7/30/365 días |
-| Cobro efectivo/transferencia 100 % | ✅ | Modal de cobro |
+| Cobro efectivo/transferencia 100 % (Req. 3.1) | ✅ | Modal de cobro rápido con selección obligatoria (Efectivo o Transferencia) para habilitar confirmación |
 | Ticket | ⚠️ | Modal imprimible; **falta PDF** (req. 9) |
 | Corte de caja con desgloses | ⚠️ | Funciona sobre ledger local; **falta `GET /api/pagos`** |
 | Exportar corte a PDF/Excel | ❌ | Solo impresión del navegador (req. 12) |
