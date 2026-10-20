@@ -7,7 +7,7 @@ export function renderSociosView() {
             <h2>Dar de Alta a un Socio</h2>
             <p>Registra rápidamente al cliente. El sistema calcula la fecha de vencimiento automáticamente.</p>
           </div>
-          <span class="required-note">* Nombre y teléfono son obligatorios</span>
+          <span class="required-note">* Nombre y tipo de pase obligatorios (Teléfono opcional)</span>
         </div>
 
         <form id="memberRegisterForm" novalidate>
@@ -25,17 +25,16 @@ export function renderSociosView() {
               <span class="field-error" id="nameError">El nombre es obligatorio para guardar al socio.</span>
             </div>
 
-            <!-- Teléfono -->
+            <!-- Teléfono (Opcional según Minuta) -->
             <div class="form-field">
-              <label for="memberPhone" class="field-label">Número de Teléfono <span class="req">*</span></label>
+              <label for="memberPhone" class="field-label">Número de Teléfono <span style="font-size:0.8rem; font-weight:normal; color:#64748b;">(Opcional)</span></label>
               <input 
                 type="tel" 
                 id="memberPhone" 
                 class="touch-input" 
                 placeholder="Ej. 5512345678"
-                required
               >
-              <span class="field-error" id="phoneError">El teléfono es obligatorio para guardar al socio.</span>
+              <span class="field-error" id="phoneError"></span>
             </div>
 
             <!-- Tipo de Pase -->
@@ -76,16 +75,24 @@ export function renderSociosView() {
               </div>
             </div>
 
-            <!-- Opción: Cobrar ahora mismo -->
+            <!-- Cobro OBLIGATORIO (Minuta Item 7) -->
             <div class="form-field full-width payment-now-box">
-              <label class="checkbox-container">
-                <input type="checkbox" id="checkPayNow" checked>
-                <span class="checkmark"></span>
-                <span class="checkbox-text">
-                  <strong>Cobrar y emitir comprobante de pago inmediatamente</strong>
-                  <span class="subtext">Si está desmarcado, el socio quedará registrado como pendiente de pago (Rojo).</span>
+              <!-- Input oculto para que el código JS que lee checkPayNow siga funcionando -->
+              <input type="checkbox" id="checkPayNow" checked style="display:none;" disabled>
+
+              <div style="
+                display:flex; align-items:center; gap:0.6rem;
+                background:#f0fdf4; border:1.5px solid #86efac;
+                border-radius:10px; padding:0.75rem 1rem; margin-bottom:0.85rem;
+              ">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.5" style="flex-shrink:0;">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span style="font-size:0.875rem; color:#15803d; font-weight:600;">
+                  El cobro es <strong>obligatorio</strong> al registrar un socio.
+                  <span style="font-weight:400; color:#166534;"> Selecciona el método de pago para continuar.</span>
                 </span>
-              </label>
+              </div>
 
               <!-- Opciones de pago inmediato -->
               <div class="immediate-pay-options" id="immediatePayOptions">

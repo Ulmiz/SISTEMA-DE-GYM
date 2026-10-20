@@ -4,7 +4,9 @@ const STORAGE_KEYS = {
   PRICES: 'powergym_prices',
   CURRENT_ROLE: 'powergym_current_role',
   PENDING_PAYMENTS: 'powergym_pending_payments', // socios dados de alta sin liquidar
-  HIDDEN_MEMBERS: 'powergym_hidden_members' // borrado lógico (ocultos de la vista)
+  HIDDEN_MEMBERS: 'powergym_hidden_members', // borrado lógico (ocultos de la vista)
+  AUTH_TOKEN: 'powergym_auth_token', // JWT de sesión
+  AUTH_USER: 'powergym_auth_user', // datos del usuario autenticado
 };
 
 export const DEFAULT_PRICES = {
@@ -30,6 +32,8 @@ export const PASS_NAMES = {
 
 export const appState = {
   role: 'recepcionista', // 'recepcionista' | 'admin'
+  user: null, // { id, username, nombre, rol }
+  token: null, // JWT activo
   prices: { ...DEFAULT_PRICES },
   members: [], // siempre desde el backend (GET /api/socios)
   transactions: [], // tickets emitidos por cobros reales (la API no expone el historial)
@@ -59,7 +63,67 @@ function writeJson(key, value) {
   localStorage.setItem(key, JSON.stringify(value));
 }
 
+// --- Autenticación y Persistencia de Sesión (localStorage + cookies) -------
+
+export function getCookie(name) {
+  if (typeof document === 'undefined' || !document.cookie) return null;
+  const match = document.cookie.match(new RegExp('(^|;\\s*)(' + name + ')=([^;]*)'));
+  return match ? decodeURIComponent(match[3]) : null;
+}
+
+export function setCookie(name, value, days = 7) {
+  if (typeof document === 'undefined') return;
+  const maxAge = days * 24 * 60 * 60;
+  document.cookie = `${name}=${encodeURIComponent(value)}; path=/; max-age=${maxAge}; SameSite=Strict`;
+}
+
+export function removeCookie(name) {
+  if (typeof document === 'undefined') return;
+  document.cookie = `${name}=; path=/; max-age=0; SameSite=Strict`;
+}
+
+export function getAuthToken() {
+  const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+  if (token) return token;
+  return getCookie(STORAGE_KEYS.AUTH_TOKEN);
+}
+
+export function getAuthUser() {
+  return readJson(STORAGE_KEYS.AUTH_USER, null);
+}
+
+export function saveSession(token, usuario) {
+  appState.token = token;
+  appState.user = usuario;
+
+  localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, token);
+  writeJson(STORAGE_KEYS.AUTH_USER, usuario);
+  setCookie(STORAGE_KEYS.AUTH_TOKEN, token, 7);
+
+  if (usuario && usuario.rol) {
+    const mappedRole = String(usuario.rol).toLowerCase() === 'admin' ? 'admin' : 'recepcionista';
+    appState.role = mappedRole;
+    localStorage.setItem(STORAGE_KEYS.CURRENT_ROLE, mappedRole);
+  }
+}
+
+export function clearSession() {
+  appState.token = null;
+  appState.user = null;
+
+  localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+  localStorage.removeItem(STORAGE_KEYS.AUTH_USER);
+  removeCookie(STORAGE_KEYS.AUTH_TOKEN);
+}
+
+export function isAuthenticated() {
+  return Boolean(appState.token || getAuthToken());
+}
+
 export function loadDataFromStorage() {
+  appState.token = getAuthToken();
+  appState.user = getAuthUser();
+
   const storedPrices = localStorage.getItem(STORAGE_KEYS.PRICES);
   if (storedPrices) {
     try { appState.prices = JSON.parse(storedPrices); } catch (e) { appState.prices = { ...DEFAULT_PRICES }; }
@@ -73,9 +137,13 @@ export function loadDataFromStorage() {
   appState.hiddenMemberIds = readJson(STORAGE_KEYS.HIDDEN_MEMBERS, []);
   appState.members = loadMembersCache();
 
-  const storedRole = localStorage.getItem(STORAGE_KEYS.CURRENT_ROLE);
-  if (storedRole) {
-    appState.role = storedRole;
+  if (appState.user && appState.user.rol) {
+    appState.role = String(appState.user.rol).toLowerCase() === 'admin' ? 'admin' : 'recepcionista';
+  } else {
+    const storedRole = localStorage.getItem(STORAGE_KEYS.CURRENT_ROLE);
+    if (storedRole) {
+      appState.role = storedRole;
+    }
   }
 }
 

@@ -6,10 +6,16 @@
 import { spawn, execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { JSDOM } from 'jsdom';
 
-const BACKEND_DIR = fileURLToPath(new URL('../../../gym-backend/', import.meta.url));
+const candidateDirs = [
+  path.resolve(fileURLToPath(new URL('../../sistema-Gym-Backend/', import.meta.url))),
+  path.resolve('C:/Users/princ/OneDrive/Documentos/SYSTEM GYM/sistema-Gym-Backend'),
+  path.resolve(fileURLToPath(new URL('../../../sistema-Gym-Backend/', import.meta.url))),
+  path.resolve(fileURLToPath(new URL('../../../gym-backend/', import.meta.url))),
+];
+const BACKEND_DIR = candidateDirs.find(d => existsSync(d)) || candidateDirs[0];
 const INDEX_HTML = fileURLToPath(new URL('../public/index.html', import.meta.url));
 
 let failed = 0;
@@ -41,9 +47,21 @@ if (existsSync(prismaCli)) {
     stdio: 'pipe',
   });
 }
-const { default: prisma } = await import(new URL('../../../gym-backend/src/prismaClient.js', import.meta.url).href);
+const { default: prisma } = await import(pathToFileURL(path.join(BACKEND_DIR, 'src', 'prismaClient.js')).href);
+const { default: bcrypt } = await import(pathToFileURL(path.join(BACKEND_DIR, 'node_modules', 'bcryptjs', 'index.js')).href);
 await prisma.pago.deleteMany();
 await prisma.socio.deleteMany();
+await prisma.usuario.deleteMany();
+
+// Sembrar cuentas fijas acordadas en la Minuta
+const hashJahdiel = await bcrypt.hash('Jahdiel23?', 10);
+const hashEduardo = await bcrypt.hash('Canuflax89.', 10);
+await prisma.usuario.createMany({
+  data: [
+    { nombre: 'Jahdiel Tzec', username: 'jahdieltzec914@gmail.com', password: hashJahdiel, rol: 'RECEPCIONISTA' },
+    { nombre: 'Eduardo Rios', username: 'Eduardo@hotmail.com', password: hashEduardo, rol: 'ADMIN' },
+  ],
+});
 await prisma.$disconnect();
 
 // --- Arranque del backend en un puerto libre -------------------------------
@@ -114,6 +132,16 @@ function limpiarBusqueda() {
   $('searchInput').dispatchEvent(new window.Event('input', { bubbles: true }));
 }
 
+console.log('0) integración de login: conexión con backend, persistencia y redirección automática');
+ok($('loginWrapper') !== null, 'el formulario de autenticación se monta en el DOM');
+ok($('appMain').style.display === 'none', 'el panel operativo está oculto antes de iniciar sesión');
+$('loginUsername').value = 'jahdieltzec914@gmail.com';
+$('loginPassword').value = 'Jahdiel23?';
+submit('loginForm');
+ok(await until(() => $('appMain').style.display === 'block'), 'redirección automática al panel operativo tras inicio exitoso');
+ok(appState.token !== null, 'token de sesión JWT guardado correctamente');
+ok($('loginWrapper').parentElement.style.display === 'none' || $('loginContainer').style.display === 'none', 'formulario de login oculto tras autenticación');
+
 console.log('1) arranque con backend vacío');
 ok(rows().length === 0, 'la tabla arranca sin socios');
 ok($('emptyState').style.display === 'block', 'se muestra el estado vacío');
@@ -159,7 +187,7 @@ console.log('5) cobro desde el modal (Requerimiento 1: reinicia desde el cobro)'
 const pedro = (await apiJson('/socios')).find((s) => s.telefono === '5533334444');
 window.openPaymentModal(pedro.id);
 ok($('paymentModal').classList.contains('active'), 'el modal de cobro se abre');
-ok($('payPassType').disabled === true && $('payPassType').value === 'semanal', 'solo se puede cobrar el pase vigente del socio');
+ok($('payPassType').disabled === false && $('payPassType').value === 'semanal', 'el pase inicia con el vigente pero es modificable (Minuta Item 9)');
 $('paymentForm').querySelector('input[name="payMethod"][value="transferencia"]').checked = true;
 submit('paymentForm');
 ok(await until(() => !$('paymentModal').classList.contains('active')), 'el cobro se procesa y cierra el modal');
@@ -191,9 +219,14 @@ $('searchInput').value = '';
 $('searchInput').dispatchEvent(new window.Event('input', { bubbles: true }));
 ok(rows().length === 2, 'limpia el filtro');
 
-console.log('8) borrado lógico por el dueño (Requerimiento 14)');
+console.log('8) borrado lógico por el dueño (Requerimiento 14 + Minuta Item 5 modal de admin)');
 $('roleSelect').value = 'admin';
 $('roleSelect').dispatchEvent(new window.Event('change', { bubbles: true }));
+if ($('adminAuthModal')?.classList.contains('active')) {
+  $('adminAuthPasswordInput').value = 'Canuflax89.';
+  submit('adminAuthForm');
+  await until(() => appState.role === 'admin');
+}
 window.handleDeleteMember(pedro.id);
 ok(await until(() => rows().length === 1), 'el socio desaparece de la vista');
 ok((await apiJson('/socios')).length === 2, 'el registro sigue existiendo en el backend');

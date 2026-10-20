@@ -4,6 +4,7 @@
 //   POST /api/socios            -> alta de socio (409 si el teléfono ya existe)
 //   POST /api/socios/:id/cobrar -> pago + renovación de vigencia
 import { formatDateToISO } from './utils.js';
+import { getAuthToken } from './state.js';
 
 // Backend por defecto; los tests pueden sobreescribirlo con globalThis.__GYM_API_URL__.
 const API_URL = globalThis.__GYM_API_URL__ || 'http://localhost:3000/api';
@@ -16,12 +17,23 @@ export class ApiError extends Error {
   }
 }
 
-async function request(path, { method = 'GET', body } = {}) {
+async function request(path, { method = 'GET', body, requiresAuth = true } = {}) {
   let response;
+  const headers = {};
+  if (body) {
+    headers['Content-Type'] = 'application/json';
+  }
+  if (requiresAuth) {
+    const token = getAuthToken();
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+  }
+
   try {
     response = await fetch(`${API_URL}${path}`, {
       method,
-      headers: body ? { 'Content-Type': 'application/json' } : undefined,
+      headers: Object.keys(headers).length > 0 ? headers : undefined,
       body: body ? JSON.stringify(body) : undefined,
     });
   } catch {
@@ -97,18 +109,66 @@ export const api = {
   },
 
   // Registra el pago y renueva la vigencia desde la fecha de cobro.
-  chargeMember: async (memberId, { amount, paymentMethod }) => {
+  chargeMember: async (memberId, { amount, paymentMethod, passType }) => {
+    const body = {
+      monto: amount,
+      metodoPago: String(paymentMethod).toUpperCase(),
+    };
+    if (passType) {
+      body.tipoPase = String(passType).toUpperCase();
+    }
     const data = await request(`/socios/${memberId}/cobrar`, {
       method: 'POST',
-      body: {
-        monto: amount,
-        metodoPago: String(paymentMethod).toUpperCase(),
-      },
+      body,
     });
     return {
       member: mapSocioToMember(data.socio),
       payment: mapPago(data.pago),
       mensaje: data.mensaje,
     };
+  },
+
+  // Autenticación: Inicio de sesión con username y password
+  login: async ({ username, password }) => {
+    return await request('/auth/login', {
+      method: 'POST',
+      body: { username, password },
+      requiresAuth: false,
+    });
+  },
+
+  // Obtiene los datos del usuario logueado usando el token Bearer
+  getMe: async () => {
+    return await request('/auth/me', {
+      method: 'GET',
+      requiresAuth: true,
+    });
+  },
+
+  // Registro de nuevo usuario (para administración)
+  registerUser: async ({ nombre, username, password, rol }) => {
+    return await request('/auth/register', {
+      method: 'POST',
+      body: { nombre, username, password, rol },
+      requiresAuth: true,
+    });
+  },
+
+  // Solicitar recuperación de contraseña (envía enlace/token)
+  recuperarPassword: async ({ email }) => {
+    return await request('/auth/recuperar-password', {
+      method: 'POST',
+      body: { email },
+      requiresAuth: false,
+    });
+  },
+
+  // Confirmar y cambiar contraseña con token
+  resetPassword: async ({ token, nuevaPassword, confirmarPassword }) => {
+    return await request('/auth/reset-password', {
+      method: 'POST',
+      body: { token, nuevaPassword, confirmarPassword },
+      requiresAuth: false,
+    });
   },
 };

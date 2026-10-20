@@ -1,9 +1,10 @@
 import { getTodayString, formatDateToISO, addDaysToDate, formatDisplayDate, formatCurrency, showToast } from './modules/utils.js';
-import { appState, loadDataFromStorage, saveMembersCache, loadMembersCache, saveTransactionsToStorage, savePricesToStorage, getMemberTrafficStatus, addTransaction, hideMember, isHiddenMember, setPendingPayment, isPendingPayment, PASS_DURATIONS, PASS_NAMES } from './modules/state.js';
+import { appState, loadDataFromStorage, saveMembersCache, loadMembersCache, saveTransactionsToStorage, savePricesToStorage, getMemberTrafficStatus, addTransaction, hideMember, isHiddenMember, setPendingPayment, isPendingPayment, isAuthenticated, saveSession, clearSession, getAuthToken, getAuthUser, PASS_DURATIONS, PASS_NAMES } from './modules/state.js';
 import { renderMembersTable, applyRolePermissions, updateTodayStats } from './modules/ui.js';
 import { api } from './modules/api.js';
 
 // Importación de Componentes Modulares
+import { renderLoginView } from './components/LoginView.js';
 import { renderNavbar, renderRoleBanner } from './components/Navbar.js';
 import { renderDashboardView } from './components/DashboardView.js';
 import { renderSociosView } from './components/SociosView.js';
@@ -11,6 +12,7 @@ import { renderCorteViewTemplate } from './components/CorteView.js';
 import { renderAdminView } from './components/AdminView.js';
 import { renderPaymentModal } from './components/PaymentModal.js';
 import { renderTicketModal } from './components/TicketModal.js';
+import { renderAdminAuthModal } from './components/AdminAuthModal.js';
 
 // Funciones expuestas a window para botones onClick en HTML (de modules/ui.js)
 window.handleDeleteMember = handleDeleteMember;
@@ -19,8 +21,13 @@ window.switchTab = switchTab;
 window.reprintTicket = reprintTicket;
 window.resetPaymentMethodSelection = resetPaymentMethodSelection;
 window.updatePaymentMethodState = updatePaymentMethodState;
+window.handleLogout = handleLogout;
+window.handleLoginSubmit = handleLoginSubmit;
 
 function mountComponents() {
+  const loginContainer = document.getElementById('loginContainer');
+  if (loginContainer) loginContainer.innerHTML = renderLoginView();
+
   const headerNav = document.getElementById('headerNav');
   if (headerNav) headerNav.innerHTML = renderNavbar();
 
@@ -42,6 +49,7 @@ function mountComponents() {
     modalContainer.innerHTML = `
       ${renderPaymentModal()}
       ${renderTicketModal()}
+      ${renderAdminAuthModal()}
     `;
   }
 }
@@ -56,6 +64,12 @@ async function refreshMembers() {
     renderMembersTable();
     return true;
   } catch (error) {
+    if (error.status === 401 || error.status === 403) {
+      clearSession();
+      updateAuthUI();
+      showToast('Sesión no autorizada o expirada. Inicia sesión nuevamente.', 'error');
+      return false;
+    }
     appState.backendOnline = false;
     appState.members = loadMembersCache().filter(m => !isHiddenMember(m.id));
     renderMembersTable();
@@ -63,6 +77,359 @@ async function refreshMembers() {
       appState.members.length > 0 ? `${error.message} Mostrando la última copia local.` : error.message,
       'error'
     );
+    return false;
+  }
+}
+
+export function updateAuthUI() {
+  const loginContainer = document.getElementById('loginContainer');
+  const headerNav = document.getElementById('headerNav');
+  const roleBanner = document.getElementById('roleBanner');
+  const appMain = document.getElementById('appMain');
+
+  const loggedIn = isAuthenticated();
+
+  if (loginContainer) loginContainer.style.display = loggedIn ? 'none' : 'block';
+  if (headerNav) headerNav.style.display = loggedIn ? 'flex' : 'none';
+  if (roleBanner) roleBanner.style.display = loggedIn ? 'block' : 'none';
+  if (appMain) appMain.style.display = loggedIn ? 'block' : 'none';
+
+  if (loggedIn) {
+    const user = appState.user;
+    const displayName = user?.nombre || user?.username || (appState.role === 'admin' ? 'Administrador' : 'Recepcionista');
+    const roleTag = (user?.rol || (appState.role === 'admin' ? 'ADMIN' : 'RECEPCIÓN')).toUpperCase();
+
+    const nameEl = document.getElementById('userDisplayName');
+    if (nameEl) nameEl.textContent = displayName;
+
+    const tagEl = document.getElementById('userRoleTag');
+    if (tagEl) tagEl.textContent = roleTag;
+
+    const avatarEl = document.getElementById('userAvatarText');
+    if (avatarEl) avatarEl.textContent = displayName.charAt(0).toUpperCase();
+
+    const roleSelect = document.getElementById('roleSelect');
+    if (roleSelect) roleSelect.value = appState.role;
+
+    applyRolePermissions();
+  }
+}
+
+export async function handleLoginSubmit(e) {
+  if (e && e.preventDefault) e.preventDefault();
+  const usernameInput = document.getElementById('loginUsername');
+  const passwordInput = document.getElementById('loginPassword');
+  const alertEl = document.getElementById('loginAlert');
+  const alertMsgEl = document.getElementById('loginAlertMessage');
+  const submitBtn = document.getElementById('btnLoginSubmit');
+  const btnText = document.getElementById('loginBtnText');
+  const spinner = document.getElementById('loginSpinner');
+
+  const username = usernameInput ? usernameInput.value.trim() : '';
+  const password = passwordInput ? passwordInput.value : '';
+
+  if (!username || !password) {
+    if (alertEl && alertMsgEl) {
+      alertMsgEl.textContent = 'Por favor ingresa tanto tu usuario como tu contraseña.';
+      alertEl.style.display = 'flex';
+    }
+    showToast('Ingresa usuario y contraseña para continuar', 'error');
+    return false;
+  }
+
+  // Minuta Item 3: Validación de contraseña fuerte (cliente pidió esto explícitamente)
+  // Reglas: mínimo 6 caracteres, ≥1 mayúscula, ≥1 minúscula, ≥1 número, ≥1 carácter especial
+  const passwordRules = [
+    { test: password.length >= 6,            msg: 'La contraseña debe tener al menos 6 caracteres.' },
+    { test: /[A-Z]/.test(password),          msg: 'La contraseña debe contener al menos una letra mayúscula.' },
+    { test: /[a-z]/.test(password),          msg: 'La contraseña debe contener al menos una letra minúscula.' },
+    { test: /[0-9]/.test(password),          msg: 'La contraseña debe contener al menos un número.' },
+    { test: /[^A-Za-z0-9]/.test(password),  msg: 'La contraseña debe contener al menos un carácter especial (ej. @, #, !, $).' },
+  ];
+  const failedRule = passwordRules.find(r => !r.test);
+  if (failedRule) {
+    if (alertEl && alertMsgEl) {
+      alertMsgEl.textContent = failedRule.msg;
+      alertEl.style.display = 'flex';
+    }
+    if (passwordInput) { passwordInput.focus(); passwordInput.select(); }
+    return false;
+  }
+
+  if (submitBtn) submitBtn.disabled = true;
+  if (btnText) btnText.textContent = 'Validando acceso...';
+  if (spinner) spinner.style.display = 'inline-block';
+  if (alertEl) alertEl.style.display = 'none';
+
+  try {
+    const data = await api.login({ username, password });
+
+    // Guardar token y usuario en el cliente (localStorage + cookies)
+    saveSession(data.token, data.usuario);
+
+    if (usernameInput) usernameInput.value = '';
+    if (passwordInput) passwordInput.value = '';
+
+    // Redirección automática al panel operativo
+    updateAuthUI();
+    switchTab('dashboard');
+
+    showToast(`¡Bienvenido, ${data.usuario.nombre || data.usuario.username}! Sesión iniciada con éxito.`, 'success');
+
+    // Sincronizar datos reales de socios del backend
+    await refreshMembers();
+    return true;
+  } catch (error) {
+    if (alertEl && alertMsgEl) {
+      alertMsgEl.textContent = error.message || 'Credenciales inválidas (usuario o contraseña incorrectos)';
+      alertEl.style.display = 'flex';
+    }
+    showToast(error.message || 'Error al iniciar sesión', 'error');
+    if (passwordInput) {
+      passwordInput.focus();
+      passwordInput.select();
+    }
+    return false;
+  } finally {
+    if (submitBtn) submitBtn.disabled = false;
+    if (btnText) btnText.textContent = 'Iniciar Sesión';
+    if (spinner) spinner.style.display = 'none';
+  }
+}
+
+export function handleLogout() {
+  clearSession();
+  updateAuthUI();
+  showAuthStep('login');
+  showToast('Has cerrado sesión correctamente.', 'info');
+  const usernameInput = document.getElementById('loginUsername');
+  if (usernameInput) {
+    setTimeout(() => usernameInput.focus(), 100);
+  }
+}
+
+// --- Control de Pasos de Recuperación de Contraseña (Figma) ---
+let currentResetToken = null;
+
+export function showAuthStep(step) {
+  const steps = ['login', 'forgot', 'reset', 'success'];
+  steps.forEach((s) => {
+    const el = document.getElementById(`authStep${s.charAt(0).toUpperCase() + s.slice(1)}`);
+    if (el) {
+      if (s === step) {
+        el.classList.add('active');
+        el.style.display = 'flex';
+      } else {
+        el.classList.remove('active');
+        el.style.display = 'none';
+      }
+    }
+  });
+
+  if (step === 'login') {
+    const alertEl = document.getElementById('loginAlert');
+    if (alertEl) alertEl.style.display = 'none';
+    setTimeout(() => document.getElementById('loginUsername')?.focus(), 50);
+  } else if (step === 'forgot') {
+    const alertEl = document.getElementById('forgotAlert');
+    if (alertEl) alertEl.style.display = 'none';
+    setTimeout(() => document.getElementById('forgotEmail')?.focus(), 50);
+  } else if (step === 'reset') {
+    const alertEl = document.getElementById('resetAlert');
+    if (alertEl) alertEl.style.display = 'none';
+    setTimeout(() => document.getElementById('resetNewPassword')?.focus(), 50);
+  }
+}
+
+export async function handleForgotSubmit(e) {
+  if (e && e.preventDefault) e.preventDefault();
+  const emailInput = document.getElementById('forgotEmail');
+  const alertEl = document.getElementById('forgotAlert');
+  const alertMsgEl = document.getElementById('forgotAlertMessage');
+  const submitBtn = document.getElementById('btnForgotSubmit');
+  const btnText = document.getElementById('forgotBtnText');
+  const spinner = document.getElementById('forgotSpinner');
+
+  const email = emailInput ? emailInput.value.trim() : '';
+
+  if (!email) {
+    if (alertEl && alertMsgEl) {
+      alertMsgEl.textContent = 'Por favor ingresa tu correo electrónico registrado.';
+      alertEl.style.display = 'flex';
+    }
+    showToast('Ingresa tu correo para continuar', 'error');
+    return false;
+  }
+
+  if (submitBtn) submitBtn.disabled = true;
+  if (btnText) btnText.textContent = 'Generando enlace...';
+  if (spinner) spinner.style.display = 'inline-block';
+  if (alertEl) alertEl.style.display = 'none';
+
+  try {
+    const res = await api.recuperarPassword({ email });
+    currentResetToken = res.resetToken;
+    showToast('Enlace de recuperación validado. Procede a crear tu nueva contraseña.', 'success');
+    showAuthStep('reset');
+    return true;
+  } catch (error) {
+    if (alertEl && alertMsgEl) {
+      alertMsgEl.textContent = error.message || 'No existe cuenta registrada con ese correo.';
+      alertEl.style.display = 'flex';
+    }
+    showToast(error.message || 'Error en la recuperación', 'error');
+    return false;
+  } finally {
+    if (submitBtn) submitBtn.disabled = false;
+    if (btnText) btnText.textContent = 'Enviar enlace de recuperación';
+    if (spinner) spinner.style.display = 'none';
+  }
+}
+
+export async function handleResetSubmit(e) {
+  if (e && e.preventDefault) e.preventDefault();
+  const newPassInput = document.getElementById('resetNewPassword');
+  const confirmPassInput = document.getElementById('resetConfirmPassword');
+  const alertEl = document.getElementById('resetAlert');
+  const alertMsgEl = document.getElementById('resetAlertMessage');
+  const submitBtn = document.getElementById('btnResetSubmit');
+  const btnText = document.getElementById('resetBtnText');
+  const spinner = document.getElementById('resetSpinner');
+
+  const nuevaPassword = newPassInput ? newPassInput.value : '';
+  const confirmarPassword = confirmPassInput ? confirmPassInput.value : '';
+
+  if (!nuevaPassword || !confirmarPassword) {
+    if (alertEl && alertMsgEl) {
+      alertMsgEl.textContent = 'Completa ambos campos de contraseña.';
+      alertEl.style.display = 'flex';
+    }
+    showToast('Completa ambos campos', 'error');
+    return false;
+  }
+
+  if (nuevaPassword !== confirmarPassword) {
+    if (alertEl && alertMsgEl) {
+      alertMsgEl.textContent = 'Las contraseñas no coinciden.';
+      alertEl.style.display = 'flex';
+    }
+    showToast('Las contraseñas no coinciden', 'error');
+    return false;
+  }
+
+  // Minuta Item 3: Mínimo 6 caracteres, mayúscula, minúscula, número y carácter especial
+  const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{6,}$/;
+  if (!passwordRegex.test(nuevaPassword)) {
+    if (alertEl && alertMsgEl) {
+      alertMsgEl.textContent = 'La contraseña debe tener al menos 6 caracteres e incluir mayúsculas, minúsculas, números y un símbolo especial.';
+      alertEl.style.display = 'flex';
+    }
+    showToast('Requisitos de contraseña no cumplidos', 'error');
+    return false;
+  }
+
+  if (!currentResetToken) {
+    if (alertEl && alertMsgEl) {
+      alertMsgEl.textContent = 'Token de recuperación ausente o expirado. Solicita un nuevo enlace.';
+      alertEl.style.display = 'flex';
+    }
+    showToast('Token ausente. Inicia de nuevo la recuperación.', 'error');
+    showAuthStep('forgot');
+    return false;
+  }
+
+  if (submitBtn) submitBtn.disabled = true;
+  if (btnText) btnText.textContent = 'Actualizando contraseña...';
+  if (spinner) spinner.style.display = 'inline-block';
+  if (alertEl) alertEl.style.display = 'none';
+
+  try {
+    await api.resetPassword({
+      token: currentResetToken,
+      nuevaPassword,
+      confirmarPassword,
+    });
+
+    currentResetToken = null;
+    if (newPassInput) newPassInput.value = '';
+    if (confirmPassInput) confirmPassInput.value = '';
+
+    showToast('¡Contraseña actualizada con éxito!', 'success');
+    showAuthStep('success');
+    return true;
+  } catch (error) {
+    if (alertEl && alertMsgEl) {
+      alertMsgEl.textContent = error.message || 'Error al restablecer la contraseña.';
+      alertEl.style.display = 'flex';
+    }
+    showToast(error.message || 'Error al restablecer contraseña', 'error');
+    return false;
+  } finally {
+    if (submitBtn) submitBtn.disabled = false;
+    if (btnText) btnText.textContent = 'Cambiar contraseña';
+    if (spinner) spinner.style.display = 'none';
+  }
+}
+
+// --- Modal de Autenticación para cambio directo a rol Admin (Minuta Item 5) ---
+export function openAdminAuthModal() {
+  const modal = document.getElementById('adminAuthModal');
+  const alertEl = document.getElementById('adminAuthAlert');
+  const emailInput = document.getElementById('adminAuthEmailInput');
+  const passInput = document.getElementById('adminAuthPasswordInput');
+  if (alertEl) alertEl.style.display = 'none';
+  if (emailInput) emailInput.value = '';
+  if (passInput) passInput.value = '';
+  if (modal) modal.classList.add('active');
+  setTimeout(() => emailInput?.focus(), 50);
+}
+
+export function closeAdminAuthModal() {
+  const modal = document.getElementById('adminAuthModal');
+  if (modal) modal.classList.remove('active');
+  const roleSelect = document.getElementById('roleSelect');
+  if (roleSelect) roleSelect.value = appState.role;
+}
+
+export async function handleAdminAuthSubmit(e) {
+  if (e && e.preventDefault) e.preventDefault();
+  const emailInput = document.getElementById('adminAuthEmailInput');
+  const passInput = document.getElementById('adminAuthPasswordInput');
+  const alertEl = document.getElementById('adminAuthAlert');
+  const alertMsg = document.getElementById('adminAuthAlertMessage');
+  const email = emailInput ? emailInput.value.trim() : '';
+  const password = passInput ? passInput.value : '';
+
+  // Validar que ambos campos estén llenos
+  if (!email || !password) {
+    if (alertEl && alertMsg) {
+      alertMsg.textContent = !email
+        ? 'Ingresa el correo del Administrador.'
+        : 'Ingresa la contraseña del Administrador.';
+      alertEl.style.display = 'flex';
+    }
+    return false;
+  }
+
+  try {
+    // Validar correo y contraseña del admin contra el backend
+    await api.login({ username: email, password });
+    setRole('admin');
+    const roleSelect = document.getElementById('roleSelect');
+    if (roleSelect) roleSelect.value = 'admin';
+    closeAdminAuthModal();
+    showToast('🔑 Acceso de Administrador verificado y concedido.', 'success');
+    return true;
+  } catch (err) {
+    if (alertEl && alertMsg) {
+      alertMsg.textContent = 'Correo o contraseña de Administrador incorrectos.';
+      alertEl.style.display = 'flex';
+    }
+    showToast('Credenciales de Administrador incorrectas', 'error');
+    if (passInput) {
+      passInput.focus();
+      passInput.select();
+    }
     return false;
   }
 }
@@ -84,8 +451,38 @@ async function initApp() {
   updateTodayStats(getTodayString);
   renderCorteView();
 
-  await refreshMembers();
+  // Siempre arrancamos mostrando el login.
+  // Solo después de verificar el token con el backend se revela el dashboard.
+  const hasStoredToken = isAuthenticated();
+
+  if (!hasStoredToken) {
+    // Sin token: mostrar login directamente
+    updateAuthUI();
+    return;
+  }
+
+  // Hay token guardado: validar contra el backend antes de mostrar nada
+  try {
+    const meData = await api.getMe();
+    if (meData && meData.usuario) {
+      appState.user = meData.usuario;
+      updateAuthUI();          // token válido → muestra dashboard
+      await refreshMembers();
+    } else {
+      // Respuesta inesperada: forzar login
+      clearSession();
+      updateAuthUI();
+    }
+  } catch (err) {
+    // Token inválido o backend caído: siempre mostrar login
+    clearSession();
+    updateAuthUI();
+    if (err.status === 401 || err.status === 403) {
+      showToast('Tu sesión ha expirado. Por favor inicia sesión nuevamente.', 'error');
+    }
+  }
 }
+
 
 function setRole(newRole) {
   appState.role = newRole;
@@ -143,25 +540,27 @@ async function handleMemberRegisterSubmit(e) {
   const name = nameInput.value.trim();
   const phone = phoneInput.value.trim();
   
-  if (!name || !phone) {
-    showToast('⚠️ No se pueden guardar socios sin nombre o teléfono.', 'error');
+  if (!name) {
+    showToast('⚠️ No se pueden guardar socios sin nombre.', 'error');
     return;
   }
 
-  // Requerimiento 2: Bloquear si intentan registrar el mismo teléfono
-  const cleanPhone = phone.replace(/\D/g, '');
-  const existingMember = appState.members.find(m => m.phone.replace(/\D/g, '') === cleanPhone);
-  if (existingMember) {
-    showToast(`⚠️ El teléfono ${phone} ya pertenece a "${existingMember.name}". Búscalo en la lista para renovar su pase.`, 'error');
-    switchTab('dashboard');
-    const searchInput = document.getElementById('searchInput');
-    if (searchInput) {
-      searchInput.value = phone;
-      appState.searchQuery = phone;
-      renderMembersTable();
-      searchInput.focus();
+  // Minuta Item 6: El teléfono es opcional
+  if (phone) {
+    const cleanPhone = phone.replace(/\D/g, '');
+    const existingMember = appState.members.find(m => m.phone && m.phone.replace(/\D/g, '') === cleanPhone);
+    if (existingMember) {
+      showToast(`⚠️ El teléfono ${phone} ya pertenece a "${existingMember.name}". Búscalo en la lista para renovar su pase.`, 'error');
+      switchTab('dashboard');
+      const searchInput = document.getElementById('searchInput');
+      if (searchInput) {
+        searchInput.value = phone;
+        appState.searchQuery = phone;
+        renderMembersTable();
+        searchInput.focus();
+      }
+      return;
     }
-    return;
   }
 
   const passType = document.getElementById('memberPassType').value;
@@ -174,15 +573,16 @@ async function handleMemberRegisterSubmit(e) {
   if (submitBtn) submitBtn.disabled = true;
 
   try {
-    // 1) Alta real en el backend (la vigencia la calcula el servidor).
-    let member = await api.createMember({ name, phone, passType });
+    // 1) Alta real en el backend. Si no hay teléfono, pasamos identificador amigable
+    const phonePayload = phone || `ST-${Date.now().toString().slice(-6)}`;
+    let member = await api.createMember({ name, phone: phonePayload, passType });
     appState.members.unshift(member);
     saveMembersCache(appState.members);
 
     if (payNowChecked) {
       // 2) Cobro real: registra el pago y reinicia la vigencia desde la fecha de cobro.
       try {
-        const { member: cobrado, payment } = await api.chargeMember(member.id, { amount, paymentMethod });
+        const { member: cobrado, payment } = await api.chargeMember(member.id, { amount, paymentMethod, passType });
         member = applyMemberUpdate(cobrado);
         const ticket = buildTransactionFromPayment(member, payment);
         addTransaction(ticket);
@@ -232,16 +632,18 @@ export function openPaymentModal(memberId) {
   const modal = document.getElementById('paymentModal');
   document.getElementById('payMemberId').value = member.id;
   document.getElementById('payMemberNameDisplay').textContent = member.name;
-  document.getElementById('payMemberPhoneDisplay').textContent = member.phone;
+  const phoneDisplay = (member.phone && !member.phone.startsWith('ST-')) ? member.phone : 'Sin teléfono';
+  document.getElementById('payMemberPhoneDisplay').textContent = phoneDisplay;
   const traffic = getMemberTrafficStatus(member);
   const badge = document.getElementById('payMemberStatusBadge');
   badge.className = `pm-badge traffic-badge ${traffic.status}`;
   badge.textContent = traffic.label;
-  // El backend renueva el pase vigente del socio: no se puede cambiar de tipo en el cobro.
+  
+  // Minuta Item 9: Permitir cambiar de membresía al renovar
   const payPassType = document.getElementById('payPassType');
   payPassType.value = member.passType || 'mensual';
-  payPassType.disabled = true;
-  payPassType.title = 'El cobro renueva el pase vigente del socio';
+  payPassType.disabled = false;
+  payPassType.title = 'Puedes modificar el tipo de pase a renovar';
 
   // Requerimiento 3.1: Modal emergente que obligue a elegir entre "Efectivo" o "Transferencia" para habilitar confirmación
   resetPaymentMethodSelection();
@@ -296,7 +698,7 @@ function updatePaymentModalCalculations() {
   const memberId = document.getElementById('payMemberId').value;
   const member = appState.members.find(m => String(m.id) === String(memberId));
   if (!member) return;
-  const passType = member.passType || 'mensual';
+  const passType = document.getElementById('payPassType')?.value || member.passType || 'mensual';
 
   // Requerimiento 1: la vigencia se reinicia desde la fecha de cobro.
   // Mismo cálculo que hace el backend: fin de hoy + días exactos del pase.
@@ -321,14 +723,15 @@ async function handlePaymentSubmit(e) {
   }
 
   const paymentMethod = methodInput.value;
-  const amount = appState.prices[member.passType] || 0;
+  const passType = document.getElementById('payPassType')?.value || member.passType || 'mensual';
+  const amount = appState.prices[passType] || 0;
 
   const confirmBtn = document.getElementById('btnConfirmPayment');
   if (confirmBtn) confirmBtn.disabled = true;
 
   try {
-    // El backend registra el pago y renueva la vigencia desde la fecha de cobro.
-    const { member: cobrado, payment } = await api.chargeMember(member.id, { amount, paymentMethod });
+    // El backend registra el pago y renueva la vigencia desde la fecha de cobro con el pase seleccionado.
+    const { member: cobrado, payment } = await api.chargeMember(member.id, { amount, paymentMethod, passType });
     const actualizado = applyMemberUpdate(cobrado);
     const ticket = buildTransactionFromPayment(actualizado, payment);
     addTransaction(ticket);
@@ -528,7 +931,30 @@ function updateTimeDisplay() {
 
 function setupEventListeners() {
   document.querySelectorAll('.nav-btn').forEach(btn => btn.addEventListener('click', () => switchTab(btn.getAttribute('data-tab'))));
-  document.getElementById('roleSelect')?.addEventListener('change', (e) => setRole(e.target.value));
+  
+  // Minuta Item 5: Alternancia de roles en dashboard con modal para rol Admin
+  document.getElementById('roleSelect')?.addEventListener('change', (e) => {
+    const targetRole = e.target.value;
+    if (targetRole === 'admin') {
+      if (appState.user?.rol === 'ADMIN' || appState.role === 'admin') {
+        setRole('admin');
+      } else {
+        e.target.value = appState.role;
+        openAdminAuthModal();
+      }
+    } else {
+      setRole('recepcionista');
+    }
+  });
+
+  // Modal de autenticación para cambiar a Admin
+  document.getElementById('btnCloseAdminAuth')?.addEventListener('click', closeAdminAuthModal);
+  document.getElementById('btnCancelAdminAuth')?.addEventListener('click', closeAdminAuthModal);
+  document.getElementById('adminAuthForm')?.addEventListener('submit', handleAdminAuthSubmit);
+  document.getElementById('btnToggleAdminAuthPassword')?.addEventListener('click', () => {
+    const p = document.getElementById('adminAuthPasswordInput');
+    if (p) p.type = p.type === 'password' ? 'text' : 'password';
+  });
   
   const searchInput = document.getElementById('searchInput');
   const clearSearchBtn = document.getElementById('clearSearchBtn');
@@ -584,7 +1010,10 @@ function setupEventListeners() {
   document.getElementById('goToCajaCard')?.addEventListener('click', () => switchTab('corte'));
   document.getElementById('btnResetFilters')?.addEventListener('click', () => { if(searchInput) searchInput.value = ''; appState.searchQuery = ''; selectFilterPill('all'); });
   document.getElementById('memberPassType')?.addEventListener('change', updateRegistrationEndDatePreview);
-  document.getElementById('checkPayNow')?.addEventListener('change', (e) => document.getElementById('immediatePayOptions').style.display = e.target.checked ? 'block' : 'none');
+  // Minuta Item 7: cobro obligatorio - immediatePayOptions siempre visible
+  const immediatePayOpts = document.getElementById('immediatePayOptions');
+  if (immediatePayOpts) immediatePayOpts.style.display = 'block';
+
   document.getElementById('memberRegisterForm')?.addEventListener('submit', handleMemberRegisterSubmit);
   document.getElementById('btnCancelRegister')?.addEventListener('click', () => switchTab('dashboard'));
   document.getElementById('payPassType')?.addEventListener('change', updatePaymentModalCalculations);
@@ -625,6 +1054,107 @@ function setupEventListeners() {
   document.getElementById('pricesForm')?.addEventListener('submit', handlePricesSubmit);
   document.getElementById('btnLoadSampleData')?.addEventListener('click', async () => { if (await refreshMembers()) showToast('Datos sincronizados con el backend', 'success'); });
   document.getElementById('btnClearAllData')?.addEventListener('click', () => { if(confirm('¿Limpiar el historial local de tickets? No toca los datos del backend.')) { appState.transactions=[]; saveTransactionsToStorage(); updateTodayStats(getTodayString); renderCorteView(); showToast('Historial local de tickets limpiado', 'info'); }});
+
+  // Módulo de Autenticación Principal
+  document.getElementById('loginForm')?.addEventListener('submit', handleLoginSubmit);
+  document.getElementById('btnLogout')?.addEventListener('click', handleLogout);
+
+  // Estados visuales reactivos en campo de usuario/correo
+  const usernameInput = document.getElementById('loginUsername');
+  const groupLoginIdentifier = document.getElementById('groupLoginIdentifier');
+  const statusIcon = document.getElementById('loginUsernameStatus');
+  if (usernameInput) {
+    usernameInput.addEventListener('input', (e) => {
+      const val = e.target.value.trim();
+      if (!val) {
+        groupLoginIdentifier?.classList.remove('is-valid', 'is-invalid');
+        if (statusIcon) statusIcon.innerHTML = '';
+      } else if (val.includes('@') && val.includes('.') && val.length > 5) {
+        groupLoginIdentifier?.classList.remove('is-invalid');
+        groupLoginIdentifier?.classList.add('is-valid');
+        if (statusIcon) {
+          statusIcon.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+        }
+      }
+    });
+  }
+
+  // Navegación entre pasos de recuperación de contraseña (Figma)
+  document.getElementById('btnGoToForgot')?.addEventListener('click', () => showAuthStep('forgot'));
+  document.getElementById('btnCloseForgot')?.addEventListener('click', () => showAuthStep('login'));
+  document.getElementById('btnBackToLoginFromForgot')?.addEventListener('click', () => showAuthStep('login'));
+  document.getElementById('forgotForm')?.addEventListener('submit', handleForgotSubmit);
+
+  document.getElementById('btnCloseReset')?.addEventListener('click', () => showAuthStep('login'));
+  document.getElementById('btnBackToLoginFromReset')?.addEventListener('click', () => showAuthStep('login'));
+  document.getElementById('resetForm')?.addEventListener('submit', handleResetSubmit);
+
+  document.getElementById('btnCloseSuccess')?.addEventListener('click', () => showAuthStep('login'));
+  document.getElementById('btnBackToLoginSuccess')?.addEventListener('click', () => showAuthStep('login'));
+
+  // Mostrar u ocultar contraseña
+  document.getElementById('btnTogglePassword')?.addEventListener('click', () => {
+    const passInput = document.getElementById('loginPassword');
+    const eyeOpen = document.getElementById('eyeIconOpen');
+    const eyeClosed = document.getElementById('eyeIconClosed');
+    if (!passInput) return;
+    const isPass = passInput.type === 'password';
+    passInput.type = isPass ? 'text' : 'password';
+    if (eyeOpen) eyeOpen.style.display = isPass ? 'none' : 'block';
+    if (eyeClosed) eyeClosed.style.display = isPass ? 'block' : 'none';
+  });
+
+  document.getElementById('btnToggleResetNew')?.addEventListener('click', () => {
+    const inp = document.getElementById('resetNewPassword');
+    if (inp) inp.type = inp.type === 'password' ? 'text' : 'password';
+  });
+
+  document.getElementById('btnToggleResetConfirm')?.addEventListener('click', () => {
+    const inp = document.getElementById('resetConfirmPassword');
+    if (inp) inp.type = inp.type === 'password' ? 'text' : 'password';
+  });
+
+  // Feedback en tiempo real para la contraseña (Minuta QA: mínimo 6 caracteres, 1 mayúscula, 1 minúscula, 1 número, 1 carácter especial)
+  const loginPassInput = document.getElementById('loginPassword');
+  const rulesPanel = document.getElementById('passwordRulesPanel');
+  if (loginPassInput && rulesPanel) {
+    const updateRuleIndicator = (elId, passed) => {
+      const el = document.getElementById(elId);
+      if (!el) return;
+      const icon = el.querySelector('.rule-icon');
+      if (passed) {
+        el.style.color = '#16a34a'; // Verde éxito
+        el.style.fontWeight = '600';
+        if (icon) icon.textContent = '✅';
+      } else {
+        el.style.color = '#94a3b8'; // Gris por defecto
+        el.style.fontWeight = 'normal';
+        if (icon) icon.textContent = '⚪';
+      }
+    };
+
+    loginPassInput.addEventListener('focus', () => {
+      rulesPanel.style.display = 'block';
+    });
+
+    loginPassInput.addEventListener('input', () => {
+      const val = loginPassInput.value;
+      if (val.length > 0) {
+        rulesPanel.style.display = 'block';
+      }
+      updateRuleIndicator('ruleLength', val.length >= 6);
+      updateRuleIndicator('ruleUpper', /[A-Z]/.test(val));
+      updateRuleIndicator('ruleLower', /[a-z]/.test(val));
+      updateRuleIndicator('ruleNumber', /[0-9]/.test(val));
+      updateRuleIndicator('ruleSpecial', /[^A-Za-z0-9]/.test(val));
+    });
+
+    loginPassInput.addEventListener('blur', () => {
+      if (!loginPassInput.value) {
+        rulesPanel.style.display = 'none';
+      }
+    });
+  }
 }
 
 function selectFilterPill(filterName) {

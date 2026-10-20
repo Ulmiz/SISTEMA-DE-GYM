@@ -40,19 +40,21 @@ export function renderNavbar() {
       </button>
     </nav>
 
-    <!-- Selector de Rol (Módulo 5) -->
+    <!-- Selector de Rol y Hora -->
     <div class="user-role-control">
       <div class="role-selector-box">
-        <label for="roleSelect" class="role-label">Operando como:</label>
+        <label for="roleSelect" class="role-label">OPERANDO COMO:</label>
         <div class="role-badge-wrapper">
           <select id="roleSelect" class="role-select">
-            <option value="recepcionista">👤 Recepcionista</option>
-            <option value="admin">🔑 Administrador / Dueño</option>
+            <option value="recepcionista">&#128100; Recepcionista</option>
+            <option value="admin">&#128273; Administrador / Dueño</option>
           </select>
         </div>
       </div>
       <div class="current-time" id="currentTimeDisplay">--:--</div>
     </div>
+
+
   `;
 }
 

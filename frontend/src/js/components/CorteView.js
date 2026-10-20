@@ -57,8 +57,8 @@ export function renderCorteViewTemplate() {
         <div class="corte-breakdowns-grid">
           <!-- Desglose por Método de Pago -->
           <div class="corte-card">
-            <div class="corte-card-header">
-              <h4>💵 Por Método de Pago</h4>
+            <div class="corte-card-header dark-blue-header">
+              <h4>Por Método de Pago</h4>
             </div>
             <div class="corte-card-body">
               <div class="breakdown-row">
@@ -86,8 +86,8 @@ export function renderCorteViewTemplate() {
 
           <!-- Desglose por Tipo de Pase -->
           <div class="corte-card">
-            <div class="corte-card-header">
-              <h4>🎫 Por Tipo de Pase</h4>
+            <div class="corte-card-header dark-blue-header">
+              <h4>Por Tipo de Pase</h4>
             </div>
             <div class="corte-card-body">
               <div class="breakdown-row">
@@ -132,7 +132,7 @@ export function renderCorteViewTemplate() {
 
         <!-- Bitácora de Pagos del Día -->
         <div class="table-container corte-history-container">
-          <div class="table-header-info">
+          <div class="table-header-info dark-blue-header">
             <h3>Detalle de Cobros Registrados</h3>
             <span class="corte-date-badge" id="corteTableDateBadge">Hoy</span>
           </div>

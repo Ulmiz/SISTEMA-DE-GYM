@@ -48,7 +48,7 @@ Servidores: front `http://localhost:8081` (`npm run dev`) · back `http://localh
 - **No existe `DELETE /api/socios/:id`** ni borrado lógico en BD (campo `activo`).
 - **No existe cambio de `tipoPase`** de un socio → no se puede "mejorar" de pase en un cobro.
 - **No hay catálogo de precios**: el front envía el `monto` y el backend solo exige que sea > 0 (no valida tarifa oficial).
-- **No hay autenticación**: `Usuario` existe pero sin rutas (pendiente requerimiento 15).
+- **Autenticación implementada**: `POST /api/auth/login`, `POST /api/auth/register`, `GET /api/auth/me` con JWT, tokens protegidos en `localStorage` y cookies, formulario de login interactivo y redirección automática al panel operativo (Requerimiento 15 completado).
 - **La alta siempre otorga vigencia**: el modelo no representa "socio sin liquidar" (estado que el front simula en local).
 - **Sin filtros/paginación/búsqueda** en la API (todo el filtrado es del cliente).
 - **Discrepancias con `requerimientos.md`**: `VISITA` vence **mañana** (+1 día) en vez del cierre del día de hoy; `MENSUAL` es **+30 días naturales** en vez de "mismo día del mes siguiente"; `estatusColor` pinta amarillo a ≤3 días (el requisito y el front usan ≤2).
@@ -80,7 +80,7 @@ Servidores: front `http://localhost:8081` (`npm run dev`) · back `http://localh
 2. Borrado real en backend (endpoint + campo `activo` = borrado lógico del requerimiento 14).
 3. Permitir cambiar `tipoPase` en el cobro (o endpoint `PATCH /socios/:id`).
 4. Alinear `VISITA`/`MENSUAL`/semáforo con `requerimientos.md` **o** actualizar el documento.
-5. Login por usuario/contraseña con el modelo `Usuario` (requerimiento 15).
+- [x] 5. Login por usuario/contraseña con el modelo `Usuario` y JWT (requerimiento 15 - Completado).
 6. Exportar corte a Excel/PDF (req 12) y ticket en PDF (req 9).
 7. Catálogo de precios en el backend para validar el monto cobrado.
 8. Si se quiere cubrición de clics en navegador real: Puppeteer/Playwright con Edge.
