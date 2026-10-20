@@ -157,48 +157,6 @@ export function renderLoginView() {
                   </div>
                 </div>
 
-                <!-- Indicador de requisitos de contraseña en tiempo real (Minuta) -->
-                <div id="passwordRulesPanel" style="
-                  margin-top: 0.6rem;
-                  margin-bottom: 0.5rem;
-                  display: none;
-                  background: #f8fafc;
-                  border: 1px solid #e2e8f0;
-                  border-radius: 8px;
-                  padding: 0.6rem 0.8rem;
-                  font-size: 0.78rem;
-                ">
-                  <div style="font-weight: 600; color: #475569; margin-bottom: 0.35rem; display: flex; align-items: center; gap: 4px;">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                      <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-                      <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-                    </svg>
-                    <span>Requisitos de seguridad (Minuta QA):</span>
-                  </div>
-                  <ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px;">
-                    <li id="ruleLength" style="display: flex; align-items: center; gap: 6px; color: #94a3b8; transition: color 0.15s ease;">
-                      <span class="rule-icon" style="font-size: 0.75rem;">⚪</span>
-                      <span>Mínimo 6 caracteres</span>
-                    </li>
-                    <li id="ruleUpper" style="display: flex; align-items: center; gap: 6px; color: #94a3b8; transition: color 0.15s ease;">
-                      <span class="rule-icon" style="font-size: 0.75rem;">⚪</span>
-                      <span>Al menos 1 mayúscula (A-Z)</span>
-                    </li>
-                    <li id="ruleLower" style="display: flex; align-items: center; gap: 6px; color: #94a3b8; transition: color 0.15s ease;">
-                      <span class="rule-icon" style="font-size: 0.75rem;">⚪</span>
-                      <span>Al menos 1 minúscula (a-z)</span>
-                    </li>
-                    <li id="ruleNumber" style="display: flex; align-items: center; gap: 6px; color: #94a3b8; transition: color 0.15s ease;">
-                      <span class="rule-icon" style="font-size: 0.75rem;">⚪</span>
-                      <span>Al menos 1 número (0-9)</span>
-                    </li>
-                    <li id="ruleSpecial" style="display: flex; align-items: center; gap: 6px; color: #94a3b8; transition: color 0.15s ease;">
-                      <span class="rule-icon" style="font-size: 0.75rem;">⚪</span>
-                      <span>Al menos 1 carácter especial (@, #, $, !, %, etc.)</span>
-                    </li>
-                  </ul>
-                </div>
-
                 <!-- Recordar sesión y enlace ¿Olvidaste tu contraseña? -->
                 <div class="auth-options-row">
                   <label class="auth-checkbox-label">
@@ -349,7 +307,49 @@ export function renderLoginView() {
                       </svg>
                     </button>
                   </div>
-                  <div class="auth-helper-msg">Usa al menos 8 caracteres e incluye mayúsculas, minúsculas, números y un símbolo.</div>
+                  <div class="auth-helper-msg">Usa al menos 6 caracteres e incluye mayúsculas, minúsculas, números y un símbolo.</div>
+                </div>
+
+                <!-- Indicador de requisitos de contraseña en tiempo real (Minuta) -->
+                <div id="passwordRulesPanel" style="
+                  margin-top: 0.6rem;
+                  margin-bottom: 0.5rem;
+                  display: none;
+                  background: #f8fafc;
+                  border: 1px solid #e2e8f0;
+                  border-radius: 8px;
+                  padding: 0.6rem 0.8rem;
+                  font-size: 0.78rem;
+                ">
+                  <div style="font-weight: 600; color: #475569; margin-bottom: 0.35rem; display: flex; align-items: center; gap: 4px;">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                      <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                      <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                    </svg>
+                    <span>Requisitos de seguridad (Minuta QA):</span>
+                  </div>
+                  <ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px;">
+                    <li id="ruleLength" style="display: flex; align-items: center; gap: 6px; color: #94a3b8; transition: color 0.15s ease;">
+                      <span class="rule-icon" style="font-size: 0.75rem;">⚪</span>
+                      <span>Mínimo 6 caracteres</span>
+                    </li>
+                    <li id="ruleUpper" style="display: flex; align-items: center; gap: 6px; color: #94a3b8; transition: color 0.15s ease;">
+                      <span class="rule-icon" style="font-size: 0.75rem;">⚪</span>
+                      <span>Al menos 1 mayúscula (A-Z)</span>
+                    </li>
+                    <li id="ruleLower" style="display: flex; align-items: center; gap: 6px; color: #94a3b8; transition: color 0.15s ease;">
+                      <span class="rule-icon" style="font-size: 0.75rem;">⚪</span>
+                      <span>Al menos 1 minúscula (a-z)</span>
+                    </li>
+                    <li id="ruleNumber" style="display: flex; align-items: center; gap: 6px; color: #94a3b8; transition: color 0.15s ease;">
+                      <span class="rule-icon" style="font-size: 0.75rem;">⚪</span>
+                      <span>Al menos 1 número (0-9)</span>
+                    </li>
+                    <li id="ruleSpecial" style="display: flex; align-items: center; gap: 6px; color: #94a3b8; transition: color 0.15s ease;">
+                      <span class="rule-icon" style="font-size: 0.75rem;">⚪</span>
+                      <span>Al menos 1 carácter especial (@, #, $, !, %, etc.)</span>
+                    </li>
+                  </ul>
                 </div>
 
                 <!-- Confirmar Contraseña -->

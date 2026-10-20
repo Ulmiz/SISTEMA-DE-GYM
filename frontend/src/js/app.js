@@ -1115,9 +1115,9 @@ function setupEventListeners() {
   });
 
   // Feedback en tiempo real para la contraseña (Minuta QA: mínimo 6 caracteres, 1 mayúscula, 1 minúscula, 1 número, 1 carácter especial)
-  const loginPassInput = document.getElementById('loginPassword');
+  const resetPassInput = document.getElementById('resetNewPassword');
   const rulesPanel = document.getElementById('passwordRulesPanel');
-  if (loginPassInput && rulesPanel) {
+  if (resetPassInput && rulesPanel) {
     const updateRuleIndicator = (elId, passed) => {
       const el = document.getElementById(elId);
       if (!el) return;
@@ -1133,15 +1133,10 @@ function setupEventListeners() {
       }
     };
 
-    loginPassInput.addEventListener('focus', () => {
-      rulesPanel.style.display = 'block';
-    });
-
-    loginPassInput.addEventListener('input', () => {
-      const val = loginPassInput.value;
-      if (val.length > 0) {
-        rulesPanel.style.display = 'block';
-      }
+    // El aviso aparece únicamente mientras se está escribiendo la nueva contraseña
+    resetPassInput.addEventListener('input', () => {
+      const val = resetPassInput.value;
+      rulesPanel.style.display = val.length > 0 ? 'block' : 'none';
       updateRuleIndicator('ruleLength', val.length >= 6);
       updateRuleIndicator('ruleUpper', /[A-Z]/.test(val));
       updateRuleIndicator('ruleLower', /[a-z]/.test(val));
@@ -1149,8 +1144,8 @@ function setupEventListeners() {
       updateRuleIndicator('ruleSpecial', /[^A-Za-z0-9]/.test(val));
     });
 
-    loginPassInput.addEventListener('blur', () => {
-      if (!loginPassInput.value) {
+    resetPassInput.addEventListener('blur', () => {
+      if (!resetPassInput.value) {
         rulesPanel.style.display = 'none';
       }
     });
